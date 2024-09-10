@@ -278,29 +278,6 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
         return $response;
     }
 
-    /**
-     * @param $request
-     * @param $api
-     * @return array|object
-     * @throws WC_Braspag_Exception
-     */
-    public function braspag_sop_request($request, $api)
-    {        
-        $response = self::request($request, $api, 'POST');
-
-        if (!empty($response->errors)) {
-            return $response;
-        }
-
-        WC_Braspag_Logger::log("Braspag Auth Requested");
-
-        return $response;
-    }
-
-    public static request($endpoint, $api = 'oauth2/token', $method = 'POST', $with_headers = false){
-
-    }
-
 
     /**
      * @param $request
@@ -406,7 +383,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
         $sop_request_builder['MerchantId'] = $merchant_id;
         $sop_request_builder['Authorization'] = $auth_sop_token;
 
-        $sop_response = $this->braspag_oauth_request($sop_request_builder, $endpoint);
+        $sop_response = $this->braspag_sop_request($sop_request_builder, $enviroment.'/'.$endpoint);
 
         WC_Braspag_Logger::log("SOP -> request: " . print_r($sop_response, true));
 
@@ -416,6 +393,66 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
 
         //return $sop_response->body->access_token;
         return $sop_response->body;
+    }
+
+    /**
+     * @param $request
+     * @param $api
+     * @return array|object
+     * @throws WC_Braspag_Exception
+     */
+    public function braspag_sop_request($request, $url, $method = 'POST')
+    {
+        WC_Braspag_Logger::log("request: " . print_r($request, true));
+
+        $end_point = $url;
+
+        $headers = $request;
+
+        $body = isset($request['body']) ? $request['body'] : [];
+
+        $requestOptions = array(
+            'method' => $method,
+            'headers' => $headers,
+            'body' => $body,
+            'timeout' => 60,
+        );
+
+        $response = wp_safe_remote_request(
+            $end_point . $api,
+            $requestOptions
+        );
+
+        if (is_wp_error($response) || empty($response['body'])) {
+            WC_Braspag_Logger::log(
+                'Error Response: ' . print_r($response, true) . PHP_EOL . PHP_EOL . 'Failed request: ' . print_r(
+                    array(
+                        'api' => $api,
+                        'request' => $request
+                    ),
+                    true
+                )
+            );
+
+            throw new WC_Braspag_Exception(print_r($response, true), __('There was a problem connecting to the Braspag API endpoint.', 'woocommerce-braspag'));
+        }
+
+        if ($with_headers) {
+            return array(
+                'headers' => wp_remote_retrieve_headers($response),
+                'body' => json_decode($response['body']),
+            );
+        }
+
+        return self::prepare_response($response);
+
+        if (!empty($response->errors)) {
+            return $response;
+        }
+
+        WC_Braspag_Logger::log("Braspag Auth Requested");
+
+        return $response;
     }
 
     /**
