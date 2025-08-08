@@ -1,4 +1,6 @@
-var Sop = Class.create();
+function Sop() {
+  this.initialize();
+}
 
 Sop.prototype = {
   initialize: async function () {

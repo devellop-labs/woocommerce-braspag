@@ -1,4 +1,6 @@
-var BpmpiRenderer = Class.create();
+function BpmpiRenderer() {
+  this.initialize();
+}
 
 BpmpiRenderer.prototype = {
   initialize: function() {
@@ -40,3 +42,4 @@ BpmpiRenderer.prototype = {
     }
   },
 }
+
