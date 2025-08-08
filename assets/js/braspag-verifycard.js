@@ -1,4 +1,6 @@
-var VerifyCard = Class.create();
+function VerifyCard() {
+    this.initialize();
+}
 
 VerifyCard.prototype = {
     initialize: async function () {

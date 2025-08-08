@@ -1,6 +1,8 @@
 'use strict';
 
-var BraspagAuth3ds20 = Class.create();
+function BraspagAuth3ds20() {
+  this.initialize();
+}
 
 BraspagAuth3ds20.prototype = {
 
@@ -314,4 +316,4 @@ BraspagAuth3ds20.prototype = {
   },
 };
 
-var bpmpi = new BraspagAuth3ds20;
+  var bpmpi = new BraspagAuth3ds20();
