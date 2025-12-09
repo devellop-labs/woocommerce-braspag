@@ -37,3 +37,72 @@
 * Add included marked begin order
 * Add Master Brand Card validation
 * Add saved card validation
+
+= 2.3.2 - 2024-02-06 =
+* Fix Wrong Total Price in Credit Card
+* Fix Wrong Total Price in Debit Card
+* Fix Wrong Total Price in JustClick
+
+= 2.3.3 - 2024-11-12 =
+* Fix Error Webhook Static Method
+
+= 2.3.4 - 2024-02-27 =
+* Add Marked Partner
+* Add Support Remote Logging WooCommerce
+* Add Support HPOS WooCommerce
+* Fix Cronjob Delete Saved Card Expired
+* Add Silent Order Post
+* Add SOP - Suppor CardToken
+* Add SOP - Suppor PaymentToken
+* Add Validation Velocity
+* Add Verify Card
+* Add VC - Suppor CardToken
+* Add VC - Suppor PaymentToken
+
+= 2.3.5 - 2024-02-27 =
+* Add ExtraDataCollection
+
+= 2.3.5.10 - 2025-03-18 =
+* Hotfix ExtraDataCollection JSON Array
+
+= 2.3.5.20 - 2025-03-19 =
+* Hotfix Validation Card Number Before Send
+
+= 2.3.5.30 - 2025-03-28 =
+* Hotfix Changed logic for update order
+
+= 2.3.5.31 - 2025-06-05 =
+* Hotfix QrCode Pix order
+* Hotfix Pix order new version WC
+
+= 2.3.5.32 - 2025-07-17 =
+* Hotfix function __wakeup()
+
+= 2.3.5.33 - 2025-08-13 =
+* Hotfix QrCode Pix order
+* Hotfix Pix order new version WC
+* Support PHP 7.4→8.3
+* Support WooCommerce 7.9.4→10.0.4
+* Support HPOS.
+* Support WordPress 6.7.0→6.8.2
+
+= 2.3.5.34 - 2025-09-19 =
+* Hotfix error offset in identify
+
+= 2.3.5.35 - 2025-10-03 =
+* Hotfix error post notification
+* Hotfix error antifraude fields limit characters
+
+= 2.3.5.36 - 2025-10-22 =
+* Remove provider itau2 from boleto payment method
+* Remove provider bankofamerica from boleto payment method
+* Add itau3 provider in boleto payment method
+* Add outdated text to itaushopline provider in boleto payment method
+
+= 2.3.5.37 - 2025-11-27 =
+* Add BancodoBrasil3 provider in boleto payment method
+* Add deprecated text to itaushopline provider in boleto payment method
+
+= 2.3.5.38 - 2025-12-09 =
+* Add outdated text to Caixa2 provider in boleto payment method
+* Add outdated text to BancoDoBrasil2 provider in boleto payment method

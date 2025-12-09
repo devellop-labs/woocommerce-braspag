@@ -39,6 +39,9 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
         $this->init_settings();
 
+    	// Load the settings extra data collection.
+        $this->settings_extra_data();
+
         $braspag_main_settings = get_option('woocommerce_braspag_settings');
 
         $braspag_enabled = isset($braspag_main_settings['enabled']) ? $braspag_main_settings['enabled'] : 'no';
@@ -377,7 +380,7 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
         if (in_array($response->body->Payment->Status, ['2'])) {
 
-            WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_braspag_charge_captured', 'yes') : $order->update_meta_data('_braspag_charge_captured', 'yes');
+            WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_braspag_charge_captured', 'yes') : $order->update_meta_data('_braspag_charge_captured', 'yes');
 
             $order->payment_complete($response->body->Payment->PaymentId);
 
@@ -387,7 +390,7 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
         }
         elseif (in_array($response->body->Payment->Status, ['0', '1', '12'])) {
 
-            WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
+            WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
 
             if ($order->has_status(array('pending', 'failed'))) {
                 WC_Braspag_Helper::is_wc_lt('3.0') ? $order->reduce_order_stock() : wc_reduce_stock_levels($order_id);
@@ -485,7 +488,8 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
             "Interest" => "ByMerchant",
             "Capture" => true,
             "Recurrent" => false,
-            "DoSplit" => false
+            "DoSplit" => false,
+	        "ExtraDataCollection" => json_decode(json_encode($this->extra_data_collection), true)
         ]);
        
         return apply_filters('wc_gateway_braspag_pagador_request_debitcard_payment_builder', $payment_data, $order, $checkout, $cart);

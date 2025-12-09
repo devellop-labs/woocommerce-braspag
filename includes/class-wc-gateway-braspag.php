@@ -26,6 +26,8 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     protected $extra_data_collection;
     protected $soft_descriptor;
     protected $silentorderpost_enabled;
+    protected $auth3DS_enabled;
+    protected $verifycard_enabled;
 
     public function __construct()
     {
@@ -53,12 +55,14 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         $this->enabled = $this->get_option('enabled');
         $this->test_mode = 'yes' === $this->get_option('test_mode');
 
-        $this->silentorderpost_enabled = $this->get_option('silent_post_enabled');
+        $this->silentorderpost_enabled = $this->get_option('silentpost_enabled');
+        $this->auth3DS_enabled = $this->get_option('auth3ds20_mpi_is_active');
+        $this->verifycard_enabled = $this->get_option('verifycard_enabled');
 
-        $this->antifraud_enabled = 'yes' === $this->get_option( 'antifraud_enabled' );
-        $this->antifraud_finger_print_org_id = $this->get_option( 'antifraud_finger_print_org_id' );
-        $this->antifraud_finger_print_merchant_id = $this->get_option( 'antifraud_finger_print_merchant_id' );
-        $this->antifraud_finger_print_session_id = $this->get_option( 'antifraud_finger_print_session_id' );
+        $this->antifraud_enabled = 'yes' === $this->get_option('antifraud_enabled');
+        $this->antifraud_finger_print_org_id = $this->get_option('antifraud_finger_print_org_id');
+        $this->antifraud_finger_print_merchant_id = $this->get_option('antifraud_finger_print_merchant_id');
+        $this->antifraud_finger_print_session_id = $this->get_option('antifraud_finger_print_session_id');
 
         if (WC()->cart) {
             $this->antifraud_finger_print_id = WC()->cart->get_cart_hash();
@@ -73,6 +77,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         add_filter('woocommerce_order_button_html', array($this, 'wc_gateway_braspag_order_button_html'));
 
         add_action('woocommerce_review_order_before_payment', array($this, 'get_braspag_auth3ds20_elements'));
+        add_action('woocommerce_review_order_before_payment', array($this, 'get_braspag_authsop_elements'));
 
         add_action('admin_menu', array($this, 'settings_menu'), 60);
     }
@@ -80,8 +85,10 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     public function settings_extra_data()
     {
         $this->extra_data_collection = [
-            "Name" => 'Plataforma',
-            "Value" => 'woocommerce'
+            [
+                "Name" => 'Plataforma',
+                "Value" => 'woocommerce'
+            ]
         ];
     }
 
@@ -224,13 +231,13 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     public function get_braspag_authsop_elements($fields)
     {
         echo '<div id="bpsop_data">
-                <div id="bpsop_data_auth">
-                    <input type="hidden" name="bpsop_test_environment" class="bpsop_test_environment" value="1"/>
-                    <input type="hidden" name="bpsop_accesstoken" class="bpsop_accesstoken"/>
-                    <input type="hidden" name="bpsop_auth" class="bpsop_auth" value="true"/>
+                <div id="bpsop_data_token">
+                    <input type="hidden" name="bp-sop-cardtype" id="bp-sop-cardtype" class="bp-sop-cardtype"/>
+                    <input type="hidden" name="bp-sop-cardexpirationdate" id="bp-sop-cardexpirationdate" class="bp-sop-cardexpirationdate"/>
+                    <input type="hidden" name="bp-sop-cardnumber" id="bp-sop-cardnumber" class="bp-sop-cardnumber"/>
                 </div>
             </div>
-            ';
+        ';
     }
 
     /**
@@ -268,8 +275,8 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         return apply_filters(
             'wc_braspag_supported_currencies',
             array(
-            'BRL',
-        )
+                'BRL',
+            )
         );
     }
 
@@ -303,36 +310,92 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
 
         $suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 
+        if ($this->auth3DS_enabled == 'yes') {
+            // Adiciona o jQuery BlockUI a partir da CDN
+            wp_register_script('jquery-blockui', 'https://cdnjs.cloudflare.com/ajax/libs/jquery.blockUI/2.70/jquery.blockUI.min.js', array('jquery'), '2.70', false);
+            wp_enqueue_script('jquery-blockui');
+        }
+
         wp_register_style('wc-braspag', plugins_url('assets/css/braspag-styles.css', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION);
         wp_enqueue_style('wc-braspag');
 
-        wp_register_script('wc-braspag', plugins_url('assets/js/braspag.js', WC_BRASPAG_MAIN_FILE), array('prototype', 'jquery-payment'), WC_BRASPAG_VERSION, true);
+        wp_register_script('wc-braspag', plugins_url('assets/js/braspag.js', WC_BRASPAG_MAIN_FILE), array('prototype', 'jquery-payment', 'jquery-blockui'), WC_BRASPAG_VERSION, true);
         wp_enqueue_script('wc-braspag');
 
-        if($this->silentorderpost_enabled == 'yes'){
-            if($this->test_mode == 'yes'){
+        if ($this->silentorderpost_enabled == 'yes') {
+            if ($this->test_mode == 'yes') {
                 wp_register_script('wc-braspag-silent-order-post', "https://transactionsandbox.pagador.com.br/post/Scripts/silentorderpost-1.0.min.js", array(), '', false);
                 wp_enqueue_script('wc-braspag-silent-order-post');
-            }else{
+            } else {
                 wp_register_script('wc-braspag-silent-order-post', "https://www.pagador.com.br/post/scripts/silentorderpost-1.0.min.js", array(), '', false);
                 wp_enqueue_script('wc-braspag-silent-order-post');
             }
+
+            $this->payment_scripts_authsop();
+        }
+
+        if ($this->verifycard_enabled == 'yes') {
+            $this->payment_scripts_verifycard();
         }
 
         wp_register_script('wc-braspag-antifraud-fingerprint', "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}", array(), '', false);
         wp_enqueue_script('wc-braspag-antifraud-fingerprint');
 
-        $this->payment_scripts_authsop();
-
         $this->payment_scripts_auth3ds20();
     }
 
-        /**
+    /**
+     * @throws WC_Braspag_Exception
+     */
+    public function payment_scripts_verifycard()
+    {
+        $verifycard_params = apply_filters(
+            'wc_gateway_braspag_pagador_verifycard_params',
+            array(
+                'isTestEnvironment' => $this->test_mode
+            )
+        );
+
+        wp_register_script('wc-braspag-verifycard', plugins_url('assets/js/braspag-verifycard.js', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION, true);
+        wp_enqueue_script('wc-braspag-verifycard');
+
+        if ($this->test_mode == 'yes') {
+            $url = 'https://apisandbox.braspag.com.br/v2/verifycard';
+            $enviroment = 'sandbox';
+        } else {
+            $url = 'https://api.braspag.com.br/v2/verifycard';
+            $enviroment = 'production';
+        }
+
+        $merchant_id = $this->get_option('merchant_id');
+        $merchant_key = $this->get_option('merchant_key');
+        $uuid = wp_generate_uuid4();
+
+        wp_localize_script(
+            'wc-braspag-verifycard',
+            'braspag_verifycard_params',
+            apply_filters(
+                'wc_gateway_braspag_pagador_verifycard_params',
+                array(
+                    'bpMerchantId' => $merchant_id,
+                    'bpMerchantKey' => $merchant_key,
+                    'bpEnvironment' => $enviroment,
+                    'apiUrl' => $url,
+                    'testMode' => $this->test_mode,
+                    'uuid' => $uuid,
+                    'enable' => $this->get_option('verifycard_enabled', 'false'),
+                )
+            )
+        );
+    }
+
+    /**
      * @throws WC_Braspag_Exception
      */
     public function payment_scripts_authsop()
     {
-        $authsop_params = apply_filters('wc_gateway_braspag_pagador_authsop_params', 
+        $authsop_params = apply_filters(
+            'wc_gateway_braspag_pagador_authsop_params',
             array(
                 'isTestEnvironment' => $this->test_mode
             )
@@ -341,29 +404,42 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         wp_register_script('wc-braspag-authsop', plugins_url('assets/js/braspag-authsop.js', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION, true);
         wp_enqueue_script('wc-braspag-authsop');
 
-        if($this->test_mode == 'yes'){
-            $enviroment = 'https://transactionsandbox.pagador.com.br/post/api/public/v2';
-        }else{
-            $enviroment = 'https://www.pagador.com.br/post/api/public/v2';
+        if ($this->test_mode == 'yes') {
+            $url = 'https://transactionsandbox.pagador.com.br/post/api/public/v2';
+            $enviroment = 'sandbox';
+        } else {
+            $url = 'https://www.pagador.com.br/post/api/public/v2';
+            $enviroment = 'production';
         }
 
-        $sop_authentication_client_id = $this->get_option('sop_authentication_client_id');
-        $sop_merchant_id = $this->get_option('merchant_id');
+        $sop_oauth_client_id = $this->get_option('silentpost_oauth_client_id');
+        $sop_merchant_id = $this->get_option('silentpost_merchant_id');
+        $merchant_id = $this->get_option('merchant_id');
 
         $auth_sop_token = $this->get_oauth_token_sop();
-        // public function get_access_token_sop($enviroment, $endpoint, $method, $auth_sop_token, $merchant_id)
-        $access_sop_token = $this->get_access_token_sop($enviroment, 'accesstoken', 'POST', $auth_sop_token, $sop_merchant_id);
+
+        $access_sop_token = $this->get_access_token_sop($url, 'accesstoken', 'POST', $auth_sop_token, $sop_merchant_id);
 
         wp_localize_script(
             'wc-braspag-authsop',
             'braspag_authsop_params',
-            apply_filters('wc_gateway_braspag_pagador_authsop_params', 
+            apply_filters(
+                'wc_gateway_braspag_pagador_authsop_params',
                 array(
-                    'bpMerchantId' => $this->get_option('merchant_id'),
-                    'bpMerchantIdSOP' => $sop_authentication_client_id,
+                    'bpMerchantId' => $merchant_id,
+                    'bpClientId' => $sop_oauth_client_id,
+                    'bpMerchantIdSOP' => $sop_merchant_id,
                     'bpOauthToken' => $auth_sop_token,
-                    'bpAccessToken' => $access_sop_token->AccessToken,
+                    'bpAccessToken' => $access_sop_token,
                     'bpEnvironment' => $enviroment,
+                    'testMode' => $this->test_mode,
+                    'provider' => 'brasppag',
+                    'enable' => $this->get_option('silentpost_enabled', 'false'),
+                    'verifyCard' => $this->get_option('silentpost_verify_enable', 'false'),
+                    'binQuery' => $this->get_option('silentpost_binquery_enable', 'false'),
+                    'tokenize' => $this->get_option('silentpost_token_type', 'no'),
+                    'language' => $this->get_option('silentpost_language', 'pt'),
+                    'cvvrequired' => $this->get_option('silentpost_cvvrequired', 'true'),
                 )
             )
         );
@@ -375,9 +451,11 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     public function payment_scripts_auth3ds20()
     {
 
-        $auth3ds_params = apply_filters('wc_gateway_braspag_pagador_auth3ds20_params', array(
-            'isTestEnvironment' => $this->test_mode
-        )
+        $auth3ds_params = apply_filters(
+            'wc_gateway_braspag_pagador_auth3ds20_params',
+            array(
+                'isTestEnvironment' => $this->test_mode
+            )
         );
 
         if ($auth3ds_params['isBpmpiEnabledCC'] || $auth3ds_params['isBpmpiEnabledDC']) {
@@ -397,17 +475,19 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
             wp_register_script('wc-braspag-auth3ds20-renderer', plugins_url('assets/js/braspag-auth3ds20-renderer.js', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION, true);
             wp_enqueue_script('wc-braspag-auth3ds20-renderer');
 
-            wp_register_script('wc-braspag-auth3ds20', plugins_url('assets/js/braspag-auth3ds20.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf', 'wc-braspag-auth3ds20-lib', 'wc-braspag-auth3ds20-renderer'), WC_BRASPAG_VERSION, true);
+            wp_register_script('wc-braspag-auth3ds20', plugins_url('assets/js/braspag-auth3ds20.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf', 'wc-braspag-auth3ds20-lib', 'wc-braspag-auth3ds20-renderer', 'wc-braspag'), WC_BRASPAG_VERSION, true);
             wp_enqueue_script('wc-braspag-auth3ds20');
 
             wp_localize_script(
                 'wc-braspag-auth3ds20',
                 'braspag_auth3ds20_params',
-                apply_filters('wc_gateway_braspag_pagador_auth3ds20_params', array(
-                'bpmpiToken' => $this->get_mpi_auth_token(),
-                'isTestEnvironment' => $this->test_mode,
-            )
-            )
+                apply_filters(
+                    'wc_gateway_braspag_pagador_auth3ds20_params',
+                    array(
+                        'bpmpiToken' => $this->get_mpi_auth_token(),
+                        'isTestEnvironment' => $this->test_mode,
+                    )
+                )
             );
         }
     }
@@ -434,8 +514,8 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
 
         // Look for updates.
         if (
-        $has_changed($old_merchant_id, $new_merchant_id)
-        || $has_changed($old_merchant_key, $new_merchant_key)
+            $has_changed($old_merchant_id, $new_merchant_id)
+            || $has_changed($old_merchant_key, $new_merchant_key)
         ) {
             update_option('wc_braspag_show_changed_keys_notice', 'yes');
         }
@@ -474,16 +554,32 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
      */
     public function get_customer_identity_data($order)
     {
+        $personType = (string) $order->get_meta('_billing_persontype'); // '1' = PF, '2' = PJ (padrão plugins BR)
+        $cpf = preg_replace('/\D+/', '', (string) $order->get_meta('_billing_cpf'));
+        $cnpj = preg_replace('/\D+/', '', (string) $order->get_meta('_billing_cnpj'));
 
-        if ('' === $order->get_meta('_billing_persontype')) {
-            return '';
+        if ($personType === '1' || (!$personType && $cpf)) {
+            return ['type' => 'CPF', 'value' => $cpf ?: ''];
         }
 
-        $customer_identity_type = $order->get_meta('_billing_persontype') == '1' ? 'CPF' : 'CNPJ';
-        return [
-            'type' => $customer_identity_type,
-            'value' => preg_replace('/\D+/', '', $customer_identity_type == 'CPF' ? $order->get_meta('_billing_cpf') : $order->get_meta('_billing_cnpj'))
-        ];
+        if ($personType === '2' || (!$personType && $cnpj)) {
+            return ['type' => 'CNPJ', 'value' => $cnpj ?: ''];
+        }
+
+        // Fallbacks (outros plugins/temas costumam usar)
+        $doc = (string) $order->get_meta('_billing_cpf_cnpj');
+        if ($doc === '') {
+            $doc = (string) $order->get_meta('_billing_document');
+        }
+        $doc = preg_replace('/\D+/', '', $doc);
+
+        if ($doc !== '') {
+            $type = (strlen($doc) === 11) ? 'CPF' : ((strlen($doc) === 14) ? 'CNPJ' : '');
+            return ['type' => $type, 'value' => $doc];
+        }
+
+        // Padrão: array vazio (nunca string)
+        return ['type' => '', 'value' => ''];
     }
 
     /**
@@ -505,18 +601,20 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
      */
     public function get_braspag_pagador_request_customer_data($order)
     {
-
         $customer_identity_data = $this->get_customer_identity_data($order);
 
         $billing_address = $order->get_address('billing');
         $shipping_address = $order->get_address('shipping');
 
+        $identity = preg_replace('/\D+/', '', isset($customer_identity_data['value']) ? $customer_identity_data['value'] : '');
+        $identityType = isset($customer_identity_data['type']) ? $customer_identity_data['type'] : '';
+
         return [
             "Name" => $order->get_formatted_billing_full_name(),
             "Email" => $order->get_billing_email(),
             "Phone" => preg_replace('/\D+/', '', $order->get_billing_phone()),
-            "Identity" => preg_replace('/\D+/', '', $customer_identity_data['value']),
-            "IdentityType" => $customer_identity_data['type'],
+            "Identity" => $identity,
+            "IdentityType" => $identityType,
             "Address" => [
                 "Street" => $order->get_billing_address_1(),
                 "Number" => $billing_address['number'],
@@ -549,7 +647,6 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
      */
     public function get_braspag_pagador_request_payment_data($payment_method, $order, $checkout, $cart)
     {
-
         return apply_filters("wc_gateway_braspag_pagador_{$payment_method}_request_payment_builder", [], $order, $checkout, $cart);
     }
 
@@ -611,7 +708,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         }
 
         // Store charge data.
-        WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_braspag_charge_captured', $captured) : $order->update_meta_data('_braspag_charge_captured', $captured);
+        WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_braspag_charge_captured', $captured) : $order->update_meta_data('_braspag_charge_captured', $captured);
 
         if ('yes' === $captured) {
             if (in_array($response->body->Payment->Status, ['2', '20'])) {
@@ -620,11 +717,11 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
                 /* translators: transaction id */
                 $message = sprintf(__('Braspag charge complete (Charge ID: %s)', 'woocommerce-braspag'), $response->body->Payment->PaymentId);
                 $order->add_order_note($message);
-            } elseif (in_array($response->body->Payment->Status, ['0','3','13'])) {
+            } elseif (in_array($response->body->Payment->Status, ['0', '3', '13'])) {
                 /* translators: transaction id */
                 $order->update_status('antifraud_reject_order_status', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
-                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
-                $velocity = ($velocityStatus == 'Reject')? 'VelocityAnalysis' : '';
+                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage ?? '';
+                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
                 $localized_message = __('Payment processing failed. | (%s) -', 'woocommerce-braspag', $velocity) . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
                 $order->add_order_note($localized_message);
                 throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
@@ -632,7 +729,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         } else {
             if (in_array($response->body->Payment->Status, ['1', '20'])) {
 
-                WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
+                WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
 
                 $payment_status = 'on-hold';
 
@@ -658,25 +755,25 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
 
             } elseif (in_array($response->body->Payment->Status, ['12'])) {
 
-                WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
+                WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
 
                 /* translators: transaction id */
                 $order->update_status('pending', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
-            } elseif (in_array($response->body->Payment->Status, ['0','3'])) {
+            } elseif (in_array($response->body->Payment->Status, ['0', '3'])) {
 
-                    WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
-    
-                    /* translators: transaction id */
-                    $order->update_status('antifraud_reject_order_status', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
-                    $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
-                    $velocity = ($velocityStatus == 'Reject')? 'VelocityAnalysis' : '';
-                    $localized_message = __('Payment processing failed.'."{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
-                    $order->add_order_note($localized_message);
-                    throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
+                WC_Braspag_Helper::is_wc_lt('3.0') ? update_post_meta($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
+
+                /* translators: transaction id */
+                $order->update_status('antifraud_reject_order_status', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
+                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
+                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
+                $localized_message = __('Payment processing failed.' . "{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
+                $order->add_order_note($localized_message);
+                throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
             } else {
                 $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
-                $velocity = ($velocityStatus == 'Reject')? 'VelocityAnalysis' : '';
-                $localized_message = __('Payment processing failed.'."{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
+                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
+                $localized_message = __('Payment processing failed.' . "{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
                 $order->add_order_note($localized_message);
                 throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
             }
@@ -717,8 +814,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
 
         if ('card_error' === $response->error->type) {
             $localized_message = isset($localized_messages[$response->error->code]) ? $localized_messages[$response->error->code] : $response->error->message;
-        }
-        else {
+        } else {
             $localized_message = isset($localized_messages[$response->error->type]) ? $localized_messages[$response->error->type] : $response->error->message;
         }
 
@@ -733,7 +829,6 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
      */
     public function throw_localized_message($response, $order, $localized_message = '')
     {
-
         if (!empty($response)) {
             $localized_message = $this->get_localized_error_message_from_response($response);
         }
