@@ -163,7 +163,8 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
                     <input type="hidden" class="bpmpi_currency" value="BRL"/>
                     <input type="hidden" class="bpmpi_ordernumber" value="' . (WC()->cart->get_cart_hash()) . '"/>
                     <input type="hidden" class="bpmpi_transaction_mode" value=""/>
-                    <input type="hidden" class="bpmpi_merchant_url" value="' . gethostname() . '"/>
+                    <input type="hidden" class="bpmpi_merchant_url_old" value="' . gethostname() . '"/>
+                    <input type="hidden" class="bpmpi_merchant_url" value="painel.sntecnologia.com"/>
                 </div>
             
                 <div id="bpmpi_data_billto">
