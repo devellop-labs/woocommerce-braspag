@@ -318,6 +318,9 @@ function wc_braspag_init()
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-order-handler.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-customer.php';
 
+			// Load Checkout Blocks
+			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/blocks/class-wc-braspag-blocks.php';
+
 			add_filter('woocommerce_payment_gateways', array($this, 'add_gateways'));
 			add_filter('plugin_action_links_' . plugin_basename(WC_BRASPAG_MAIN_FILE), array($this, 'plugin_action_links'));
 
