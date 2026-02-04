@@ -821,7 +821,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         if (
             'yes' !== $this->antifraud_enabled
             || 'yes' !== $this->antifraud_send_with_pagador_transaction
-            || 'yes' === $this->auth3ds20_mpi_is_active
+            // || 'yes' === $this->auth3ds20_mpi_is_active
             || 'yes' === $this->sop_enabled
         ) {
             return $payment_data;
