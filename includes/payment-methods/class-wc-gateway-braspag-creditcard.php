@@ -831,10 +831,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
 
         $fraudAnalysCartItems = [];
         foreach ($cart->get_cart_contents() as $cart_content) {
-
-            WC_Braspag_Logger::log(
-                "Info: Cart: " . print_r($cart_content, true)
-            );
             $fraudAnalysCartItems[] = [
                 "GiftCategory" => "Undefined",
                 "HostHedge" => "Off",
@@ -842,7 +838,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "ObscenitiesHedge" => "Off",
                 "PhoneHedge" => "Off",
                 "Name" => $cart_content['data']->get_name(),
-                "Quantity" => $cart_content['data']->get_quantity(),
+                "Quantity" => $cart_content['quantity'],
                 "Sku" => $cart_content['data']->get_sku(),
                 "UnitPrice" => intval($cart_content['data']->get_price() * 100),
             ];
