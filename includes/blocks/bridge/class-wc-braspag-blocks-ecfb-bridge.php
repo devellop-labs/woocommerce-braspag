@@ -553,6 +553,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					// sem tipo, não dá pra decidir - mas já acusa erro
 					return;
 				}
+
 				$need_cpf = ('1' === $selected_person);
 				$need_cnpj = ('2' === $selected_person);
 			} elseif (2 === $person_type_mode) {
@@ -565,6 +566,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 
 			if ($need_cpf) {
 				$cpf = isset($fields[self::FIELD_NS . '/cpf']) ? self::sanitize_digits($fields[self::FIELD_NS . '/cpf']) : '';
+
 				if ('' === $cpf) {
 					$errors->add('missing_cpf', __('CPF é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 				} else {
@@ -588,6 +590,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				if (function_exists('WC') && WC()->customer) {
 					$company = (string) WC()->customer->get_billing_company();
 				}
+
 				if ('' === trim($company)) {
 					$errors->add('missing_company', __('Razão Social é obrigatória para Pessoa Jurídica.', 'woocommerce-extra-checkout-fields-for-brazil'));
 				}
@@ -637,6 +640,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			if ('2' === $cell_phone && '' === $cell) {
 				$errors->add('missing_cellphone', __('Celular é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 			}
+
 			if ('' !== $cell) {
 				// validação mínima: 10-13 dígitos (BR + DDI)
 				$len = strlen($cell);
