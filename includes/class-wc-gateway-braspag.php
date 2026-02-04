@@ -308,6 +308,14 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
             return;
         }
 
+        if (!is_checkout() && !is_checkout_pay_page() && !is_add_payment_method_page()) {
+            return;
+        }
+
+        if ($this->is_checkout_blocks()) {
+            return;
+        }
+
         $suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 
         if ($this->auth3DS_enabled == 'yes') {
@@ -342,6 +350,30 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         wp_enqueue_script('wc-braspag-antifraud-fingerprint');
 
         $this->payment_scripts_auth3ds20();
+    }
+
+    private function is_checkout_blocks()
+    {
+        if (!function_exists('wc_get_page_id') || !function_exists('has_block')) {
+            return false;
+        }
+
+        $checkout_page_id = wc_get_page_id('checkout');
+        if (!$checkout_page_id || $checkout_page_id <= 0) {
+            return false;
+        }
+
+        $post = get_post($checkout_page_id);
+        if (!$post) {
+            return false;
+        }
+
+        // Block do checkout
+        if (has_block('woocommerce/checkout', $post)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -812,13 +844,69 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     {
         $localized_messages = WC_Braspag_Helper::get_localized_messages();
 
-        if ('card_error' === $response->error->type) {
-            $localized_message = isset($localized_messages[$response->error->code]) ? $localized_messages[$response->error->code] : $response->error->message;
-        } else {
-            $localized_message = isset($localized_messages[$response->error->type]) ? $localized_messages[$response->error->type] : $response->error->message;
+        $default = __('Payment processing failed.', 'woocommerce-braspag');
+
+        if (empty($response) || !is_object($response)) {
+            return $default;
         }
 
-        return $localized_message;
+        if (isset($response->error) && is_object($response->error)) {
+            $type = $response->error->type ?? '';
+            $code = $response->error->code ?? '';
+            $message = $response->error->message ?? $default;
+
+            if ($type === 'card_error' && !empty($code)) {
+                return $localized_messages[$code] ?? $message;
+            }
+
+            if (!empty($type)) {
+                return $localized_messages[$type] ?? $message;
+            }
+
+            return $message;
+        }
+
+
+        if (isset($response->errors) && is_array($response->errors) && !empty($response->errors)) {
+            $first = $response->errors[0];
+
+            if (is_object($first)) {
+                $type = $first->Type ?? ($first->type ?? '');
+                $code = $first->Code ?? ($first->code ?? '');
+                $message = $first->Message ?? ($first->message ?? $default);
+
+                if ($type === 'card_error' && !empty($code)) {
+                    return $localized_messages[$code] ?? $message;
+                }
+
+                if (!empty($code)) {
+                    return $localized_messages[$code] ?? $message;
+                }
+
+                if (!empty($type)) {
+                    return $localized_messages[$type] ?? $message;
+                }
+
+                return $message;
+            }
+
+            return $default;
+        }
+
+        if (isset($response->body->Payment) && is_object($response->body->Payment)) {
+            $msg = $response->body->Payment->ProviderReturnMessage ?? '';
+            $code = $response->body->Payment->ProviderReturnCode ?? '';
+
+            if (!empty($code) && isset($localized_messages[$code])) {
+                return $localized_messages[$code];
+            }
+
+            if (!empty($msg)) {
+                return $msg;
+            }
+        }
+
+        return $default;
     }
 
     /**

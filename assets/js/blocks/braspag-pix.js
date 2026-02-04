@@ -7,23 +7,22 @@
 
     const settings = getSetting('braspag_pix_data', {});
 
+    const Content = () =>
+        el(
+            Fragment,
+            null,
+            settings.description
+                ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description)
+                : null
+        );
+
     registerPaymentMethod({
         name: 'braspag_pix',
-        label: settings.title || __('Pix', 'woocommerce-braspag'),
-        ariaLabel: settings.title || __('Pix', 'woocommerce-braspag'),
+        label: 'Braspag - ' + settings.title || __('Braspag - Pix', 'woocommerce-braspag'),
+        ariaLabel: 'Braspag - ' + settings.title || __('Braspag - Pix', 'woocommerce-braspag'),
         canMakePayment: () => true,
-        content: () =>
-            el(
-                Fragment,
-                null,
-                settings.description ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description) : null
-            ),
-        edit: () =>
-            el(
-                Fragment,
-                null,
-                settings.description ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description) : null
-            ),
+        content: el(Content, null),
+        edit: el(Content, null),
         supports: settings.supports || { features: ['products'] },
 
         // Pix não precisa mandar payment_data extra.

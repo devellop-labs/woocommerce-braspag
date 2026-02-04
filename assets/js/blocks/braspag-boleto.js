@@ -7,23 +7,22 @@
 
     const settings = getSetting('braspag_boleto_data', {});
 
+    const Content = () =>
+        el(
+            Fragment,
+            null,
+            settings.description
+                ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description)
+                : null
+        );
+
     registerPaymentMethod({
         name: 'braspag_boleto',
-        label: settings.title || __('Boleto', 'woocommerce-braspag'),
-        ariaLabel: settings.title || __('Boleto', 'woocommerce-braspag'),
+        label: 'Braspag - ' + settings.title || __('Braspag - Boleto', 'woocommerce-braspag'),
+        ariaLabel: 'Braspag - ' + settings.title || __('Braspag - Boleto', 'woocommerce-braspag'),
         canMakePayment: () => true,
-        content: () =>
-            el(
-                Fragment,
-                null,
-                settings.description ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description) : null
-            ),
-        edit: () =>
-            el(
-                Fragment,
-                null,
-                settings.description ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description) : null
-            ),
+        content: el(Content, null),
+        edit: el(Content, null),
         supports: settings.supports || { features: ['products'] },
 
         // Boleto não precisa mandar payment_data extra.

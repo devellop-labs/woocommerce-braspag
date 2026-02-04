@@ -37,7 +37,7 @@ final class WC_Braspag_Blocks_Pix extends WC_Braspag_Blocks_Abstract
         return [
             'title' => $this->get_setting('title', __('Pix', 'woocommerce-braspag')),
             'description' => $this->get_setting('description', ''),
-            'supports' => ['products'],
+            'supports' => ['features' => ['products']],
         ];
     }
 }
