@@ -488,6 +488,10 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 break;
         }
 
+            WC_Braspag_Logger::log(
+                "3DS:  {$appendMpi} | failureType: {$failureType} | authorize_on_error: {$this->auth3ds20_mpi_authorize_on_error} | authorize_on_failure: {$this->auth3ds20_mpi_authorize_on_failure} | authorize_on_unenrolled: {$this->auth3ds20_mpi_authorize_on_unenrolled} | authorize_on_unsupported_brand: {$this->auth3ds20_mpi_authorize_on_unsupported_brand}"
+            );
+
         $cardType = (string) $checkout->get_value('braspag_creditcard-card-type');
         $provider = (string) $this->get_braspag_payment_provider($cardType, $this->test_mode);
 
