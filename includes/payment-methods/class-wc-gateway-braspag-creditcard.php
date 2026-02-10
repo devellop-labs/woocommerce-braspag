@@ -290,22 +290,22 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $fields = wp_parse_args($fields, apply_filters('woocommerce_credit_card_form_fields', $default_fields, $this->id));
 
         ?>
-                                                            <noscript><iframe src="<?php echo "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}" ?>"></iframe></noscript>
+                                                                    <noscript><iframe src="<?php echo "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}" ?>"></iframe></noscript>
 
-                                                            <fieldset id="wc-<?php echo esc_attr($this->id); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
-                                                                <?php do_action('woocommerce_credit_card_form_start', $this->id); ?>
+                                                                    <fieldset id="wc-<?php echo esc_attr($this->id); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
+                                                                        <?php do_action('woocommerce_credit_card_form_start', $this->id); ?>
+                                                                        <?php
+                                                                        foreach ($fields as $field) {
+                                                                            echo $field; // phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped
+                                                                        }
+                                                                        ?>
+                                                                        <?php do_action('woocommerce_credit_card_form_end', $this->id); ?>
+                                                                        <div class="clear"></div>
+                                                                    </fieldset>
+
                                                                 <?php
-                                                                foreach ($fields as $field) {
-                                                                    echo $field; // phpcs:ignore WordPress.XSS.EscapeOutput.OutputNotEscaped
-                                                                }
-                                                                ?>
-                                                                <?php do_action('woocommerce_credit_card_form_end', $this->id); ?>
-                                                                <div class="clear"></div>
-                                                            </fieldset>
 
-                                                        <?php
-
-                                                        do_action('wc_gateway_braspag_pagador_creditcard_elements_form_after', $this->id);
+                                                                do_action('wc_gateway_braspag_pagador_creditcard_elements_form_after', $this->id);
     }
 
     /**
@@ -383,7 +383,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 }
 
                 if (!empty($response->errors)) {
-
                     if ($this->is_retryable_error($response)) {
                         return $this->retry_after_error($response, $order, $retry, $previous_error, $use_order_source);
                     }
@@ -489,7 +488,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         }
 
         WC_Braspag_Logger::log(
-            "3DS:  {$appendMpi} | failureType: {$failureType} | authorize_on_error: {$this->auth3ds20_mpi_authorize_on_error} | authorize_on_failure: {$this->auth3ds20_mpi_authorize_on_failure} | authorize_on_unenrolled: {$this->auth3ds20_mpi_authorize_on_unenrolled} | authorize_on_unsupported_brand: {$this->auth3ds20_mpi_authorize_on_unsupported_brand}"
+            "3DS: {$this->auth3ds20_mpi_is_active} | Block: {$appendMpi} | failureType: {$failureType} | authorize_on_error: {$this->auth3ds20_mpi_authorize_on_error} | authorize_on_failure: {$this->auth3ds20_mpi_authorize_on_failure} | authorize_on_unenrolled: {$this->auth3ds20_mpi_authorize_on_unenrolled} | authorize_on_unsupported_brand: {$this->auth3ds20_mpi_authorize_on_unsupported_brand}"
         );
 
         $cardType = (string) $checkout->get_value('braspag_creditcard-card-type');
@@ -966,7 +965,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
             }
 
             WC_Braspag_Logger::log(
-                "3DS:  {$block} | failureType: {$failureType} | authorize_on_error: {$this->auth3ds20_mpi_authorize_on_error} | authorize_on_failure: {$this->auth3ds20_mpi_authorize_on_failure} | authorize_on_unenrolled: {$this->auth3ds20_mpi_authorize_on_unenrolled} | authorize_on_unsupported_brand: {$this->auth3ds20_mpi_authorize_on_unsupported_brand}"
+                "3DS:  {$this->auth3ds20_mpi_is_active} | Block: {$block} | failureType: {$failureType} | authorize_on_error: {$this->auth3ds20_mpi_authorize_on_error} | authorize_on_failure: {$this->auth3ds20_mpi_authorize_on_failure} | authorize_on_unenrolled: {$this->auth3ds20_mpi_authorize_on_unenrolled} | authorize_on_unsupported_brand: {$this->auth3ds20_mpi_authorize_on_unsupported_brand}"
             );
 
             if ($block === false) {
@@ -1100,19 +1099,19 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
 
         ?>
 
-                                                                        <table class="woocommerce-table woocommerce-table--order-details shop_table order_details">
-                                                                            <tfoot>
-                                                                                <tr>
-                                                                                    <th width="50%" scope="row"><?php echo __("Parcelamento", 'woocomerce-braspag') ?>:</th>
-                                                                                    <td>
-                                                                                        <?php echo $order->get_meta('_braspag_creditcard_installments'); ?>x
-                                                                                    </td>
-                                                                                </tr>
-                                                                            </tfoot>
-                                                                        </table>
-                                                                <?php
+                                                                                <table class="woocommerce-table woocommerce-table--order-details shop_table order_details">
+                                                                                    <tfoot>
+                                                                                        <tr>
+                                                                                            <th width="50%" scope="row"><?php echo __("Parcelamento", 'woocomerce-braspag') ?>:</th>
+                                                                                            <td>
+                                                                                                <?php echo $order->get_meta('_braspag_creditcard_installments'); ?>x
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    </tfoot>
+                                                                                </table>
+                                                                        <?php
 
-                                                                do_action('wc_gateway_braspag_pagador_creditcard_display_order_data_after', $order);
+                                                                        do_action('wc_gateway_braspag_pagador_creditcard_display_order_data_after', $order);
     }
 
     /**
