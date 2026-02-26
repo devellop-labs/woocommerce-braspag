@@ -39,7 +39,7 @@ Funcionalidades
 - Checkout Card View
 - Authorize Only
 - Authorize and Capture
-- Authentication 3DS 2.0
+- Authentication 3DS 2.2
 - Anti Fraud
 - Credit Card Token
 
