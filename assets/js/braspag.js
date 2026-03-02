@@ -147,6 +147,12 @@ var braspagCards = [
 	}
 ];
 
+// Pre-compile regex patterns once to avoid repeated compilation on every keyup
+braspagCards.forEach(function (card) {
+	card._regex_include = card.regex_include ? new RegExp(card.regex_include) : null;
+	card._regex_exclude = card.regex_exclude ? new RegExp(card.regex_exclude) : null;
+});
+
 function Braspag() {
         this.initialize();
 }
@@ -170,23 +176,19 @@ Braspag.prototype = {
 			card = braspagCards[_i];
 
 			let cardTypeFound = false;
-			if (card.regex_include != '') {
-				let regexIncludePattern = new RegExp(card.regex_include);
-
-				if (regexIncludePattern.test(num)) {
+			if (card._regex_include !== null) {
+				if (card._regex_include.test(num)) {
 					cardTypeFound = true;
 				}
 			}
 
 			if (cardTypeFound) {
 
-				if (card.regex_exclude == '') {
+				if (card._regex_exclude === null) {
 					return card;
 				}
 
-				let regexExcludePattern = new RegExp(card.regex_exclude);
-
-				if (!regexExcludePattern.test(num)) {
+				if (!card._regex_exclude.test(num)) {
 					return card;
 				}
 			}
