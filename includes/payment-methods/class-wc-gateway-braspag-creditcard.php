@@ -290,7 +290,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $fields = wp_parse_args($fields, apply_filters('woocommerce_credit_card_form_fields', $default_fields, $this->id));
 
         ?>
-                                                                    <noscript><iframe src="<?php echo "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}" ?>"></iframe></noscript>
+                                                                    <noscript><iframe src="<?php echo esc_url( add_query_arg( array( 'org_id' => $this->antifraud_finger_print_org_id, 'session_id' => $this->antifraud_finger_print_session_id ), 'https://h.online-metrix.net/fp/tags.js' ) ); ?>"></iframe></noscript>
 
                                                                     <fieldset id="wc-<?php echo esc_attr($this->id); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
                                                                         <?php do_action('woocommerce_credit_card_form_start', $this->id); ?>
