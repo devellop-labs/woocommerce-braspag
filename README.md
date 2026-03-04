@@ -100,7 +100,7 @@ _Funcionalidades_
 - Checkout Card View
 - Authorize Only
 - Authorize and Capture
-- Authentication 3DS 2.0
+- Authentication 3DS 2.2 (Elo and Amex cards are not supported)
 - Anti Fraud
 - Credit Card Token
 
@@ -122,7 +122,7 @@ _Funcionalidades_
 
 _Funcionalidades_
 
-- Authenticate 3DS 2.0
+- Authenticate 3DS 2.2 (Elo and Amex cards are not supported)
 - Checkout Card View
 
 #### Boleto
