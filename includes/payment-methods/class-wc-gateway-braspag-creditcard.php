@@ -467,6 +467,10 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $message = __('Credit Card Payment Failure.', 'woocommerce-braspag');
         $appendMpi = false;
 
+        $cardType = (string) $checkout->get_value('braspag_creditcard-card-type');
+        $provider = (string) $this->get_braspag_payment_provider($cardType, $this->test_mode);
+        $isCielo = (bool) preg_match('#cielo#i', $provider);
+
         switch ($failureType) {
             case '4':
                 $appendMpi = ($this->auth3ds20_mpi_authorize_on_error === 'no');
@@ -481,16 +485,8 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 $appendMpi = ($this->auth3ds20_mpi_authorize_on_unsupported_brand === 'no');
                 break;
             default:
-                $appendMpi = true;
+                $appendMpi = !$this->test_mode && $failureType !== '3' && !$isCielo;
                 break;
-        }
-
-        $cardType = (string) $checkout->get_value('braspag_creditcard-card-type');
-        $provider = (string) $this->get_braspag_payment_provider($cardType, $this->test_mode);
-        $isCielo = (bool) preg_match('#cielo#i', $provider);
-
-        if (!$this->test_mode && $failureType !== '3' && !$isCielo) {
-            $appendMpi = true;
         }
 
         if (!$appendMpi) {
