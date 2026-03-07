@@ -136,6 +136,32 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		return strtoupper($country) === 'BR';
 	}
 
+	private static function get_billing_country_rule(array $settings): array
+	{
+		$only_brazil = self::is_brazil_only_required($settings, 'BR');
+
+		if (!$only_brazil) {
+			return array();
+		}
+
+		return array(
+			'customer' => array(
+				'properties' => array(
+					'billing_address' => array(
+						'type' => 'object',
+						'properties' => array(
+							'country' => array(
+								'const' => 'BR',
+							),
+						),
+						'required' => array('country'),
+					),
+				),
+				'required' => array('billing_address'),
+			),
+		);
+	}
+
 	public static function sanitize_digits($value): string
 	{
 		$value = is_string($value) ? $value : '';
@@ -221,6 +247,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		}
 
 		$settings = self::get_settings();
+		$brazil_rule = self::get_billing_country_rule($settings);
 
 		// --------------------------
 		// ADDRESS (aparece em billing e shipping)
@@ -264,7 +291,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 						'label' => __('Tipo de Pessoa', 'woocommerce-extra-checkout-fields-for-brazil'),
 						'location' => 'order',
 						'type' => 'select',
-						'required' => false, // obrigatório condicional (validamos no hook)
+						'required' => ($brazil_rule) ? true : false,
 						'options' => array(
 							array('value' => '1', 'label' => __('Pessoa Física', 'woocommerce-extra-checkout-fields-for-brazil')),
 							array('value' => '2', 'label' => __('Pessoa Jurídica', 'woocommerce-extra-checkout-fields-for-brazil')),
@@ -279,7 +306,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('CPF', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => false, // obrigatório condicional
+					'required' => true,
 					'sanitize_callback' => array(__CLASS__, 'sanitize_digits'),
 					'validate_callback' => function ($value) use ($settings) {
 						$value = WC_Braspag_Blocks_ECFB_Bridge::sanitize_digits($value);
@@ -301,7 +328,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 						'label' => __('RG', 'woocommerce-extra-checkout-fields-for-brazil'),
 						'location' => 'order',
 						'type' => 'text',
-						'required' => false, // obrigatório condicional (PF)
+						'required' => false,
 						'sanitize_callback' => array(__CLASS__, 'sanitize_text'),
 					)
 				);
@@ -313,7 +340,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('CNPJ', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => false, // obrigatório condicional
+					'required' => false,
 					'sanitize_callback' => array(__CLASS__, 'sanitize_digits'),
 					'validate_callback' => function ($value) use ($settings) {
 						$value = WC_Braspag_Blocks_ECFB_Bridge::sanitize_digits($value);
@@ -335,7 +362,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 						'label' => __('Inscrição Estadual', 'woocommerce-extra-checkout-fields-for-brazil'),
 						'location' => 'order',
 						'type' => 'text',
-						'required' => false, // obrigatório condicional (PJ)
+						'required' => false,
 						'sanitize_callback' => array(__CLASS__, 'sanitize_text'),
 					)
 				);
@@ -349,7 +376,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('Data de Nascimento', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => false, // obrigatório condicional (validamos no hook, pq depende de only_brazil)
+					'required' => false,
 					'sanitize_callback' => array(__CLASS__, 'sanitize_text'),
 				)
 			);
@@ -362,7 +389,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('Gênero', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'select',
-					'required' => false, // obrigatório condicional
+					'required' => false,
 					'options' => array(
 						array('value' => 'female', 'label' => __('Feminino', 'woocommerce-extra-checkout-fields-for-brazil')),
 						array('value' => 'male', 'label' => __('Masculino', 'woocommerce-extra-checkout-fields-for-brazil')),
@@ -380,7 +407,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('Celular', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => false, // obrigatório condicional
+					'required' => false,
 					'sanitize_callback' => array(__CLASS__, 'sanitize_digits'),
 				)
 			);

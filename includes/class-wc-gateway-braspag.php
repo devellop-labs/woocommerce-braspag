@@ -106,7 +106,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
 
     public function html_settings_page()
     {
-        include dirname(__FILE__) . '/views/html-settings-page.php';
+        //include dirname(__FILE__) . '/views/html-settings-page.php';
     }
 
     /**
