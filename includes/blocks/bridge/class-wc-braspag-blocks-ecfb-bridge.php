@@ -69,7 +69,15 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		 * Docs: validação por hooks no Blocks (Store API).
 		 */
 		add_action('woocommerce_blocks_validate_location_address_fields', array(__CLASS__, 'validate_address_fields'), 10, 3);
-		add_action('woocommerce_blocks_validate_location_other_fields', array(__CLASS__, 'validate_other_fields'), 10, 3);
+		add_action('woocommerce_blocks_validate_location_order_fields', array(__CLASS__, 'validate_other_fields'), 10, 3);
+
+		// Remove os campos duplicados injetados pelo WooCommerce Blocks no admin do pedido.
+		// O plugin ECFB já exibe/edita _billing_number, _shipping_number, _billing_neighborhood
+		// e _shipping_neighborhood via woocommerce_admin_billing/shipping_fields. O WC Blocks
+		// injetaria os mesmos dados com chave 'braspag-wcbcf/number' etc. (sem prefixo de grupo
+		// no índice do array), gerando duplicatas.
+		add_filter('woocommerce_admin_billing_fields', array(__CLASS__, 'remove_duplicate_admin_fields'), 30);
+		add_filter('woocommerce_admin_shipping_fields', array(__CLASS__, 'remove_duplicate_admin_fields'), 30);
 
 		add_action('wp_enqueue_scripts', function () {
 			if (!function_exists('is_checkout') || !is_checkout())
@@ -87,7 +95,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				'braspag-wcbcf-blocks-ui',
 				plugins_url('assets/js/blocks/bridge/braspag-wcbcf-blocks-ui.js', WC_BRASPAG_MAIN_FILE),
 				array(),
-				'1.0.0',
+				'1.0.2',
 				true
 			);
 		}, 20);
@@ -96,7 +104,26 @@ class WC_Braspag_Blocks_ECFB_Bridge
 	private static function get_settings(): array
 	{
 		$settings = get_option(self::ECFB_OPTION_NAME, array());
-		return is_array($settings) ? $settings : array();
+
+		// Se não há settings configuradas, aplicar defaults mínimos para funcionar com Braspag
+		if (empty($settings) || !is_array($settings)) {
+			$settings = array(
+				'person_type' => 1, // PF/PJ selection
+				'validate_cpf' => true,
+				'validate_cnpj' => true,
+				'only_brazil' => true,
+			);
+		}
+
+		// Garantir que validação esteja habilitada para Braspag
+		if (!isset($settings['validate_cpf'])) {
+			$settings['validate_cpf'] = true;
+		}
+		if (!isset($settings['validate_cnpj'])) {
+			$settings['validate_cnpj'] = true;
+		}
+
+		return $settings;
 	}
 
 	private static function is_brazil_only_required(array $settings, string $country): bool
@@ -130,7 +157,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		$cpf = self::sanitize_digits($cpf);
 
 		if (class_exists('Extra_Checkout_Fields_For_Brazil_Formatting')) {
-			return Extra_Checkout_Fields_For_Brazil_Formatting::is_cpf($cpf);
+			return \Extra_Checkout_Fields_For_Brazil_Formatting::is_cpf($cpf);
 		}
 
 		// Fallback básico (mesma lógica clássica)
@@ -152,7 +179,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		$cnpj = self::sanitize_digits($cnpj);
 
 		if (class_exists('Extra_Checkout_Fields_For_Brazil_Formatting')) {
-			return Extra_Checkout_Fields_For_Brazil_Formatting::is_cnpj($cnpj);
+			return \Extra_Checkout_Fields_For_Brazil_Formatting::is_cnpj($cnpj);
 		}
 
 		// Fallback básico
@@ -260,7 +287,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 							return;
 						$validate = isset($settings['validate_cpf']) ? (bool) $settings['validate_cpf'] : false;
 						if ($validate && !WC_Braspag_Blocks_ECFB_Bridge::is_valid_cpf($value)) {
-							return new WP_Error('invalid_cpf', __('CPF inválido.', 'woocommerce-extra-checkout-fields-for-brazil'));
+							return new \WP_Error('invalid_cpf', __('CPF inválido.', 'woocommerce-extra-checkout-fields-for-brazil'));
 						}
 					},
 				)
@@ -294,7 +321,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 							return;
 						$validate = isset($settings['validate_cnpj']) ? (bool) $settings['validate_cnpj'] : false;
 						if ($validate && !WC_Braspag_Blocks_ECFB_Bridge::is_valid_cnpj($value)) {
-							return new WP_Error('invalid_cnpj', __('CNPJ inválido.', 'woocommerce-extra-checkout-fields-for-brazil'));
+							return new \WP_Error('invalid_cnpj', __('CNPJ inválido.', 'woocommerce-extra-checkout-fields-for-brazil'));
 						}
 					},
 				)
@@ -358,6 +385,39 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				)
 			);
 		}
+	}
+
+	/**
+	 * Remove campos duplicados injetados pelo WC Blocks no admin de pedidos.
+	 *
+	 * O plugin ECFB já exibe/edita _billing_number, _shipping_number, _billing_neighborhood,
+	 * _shipping_neighborhood, _billing_cpf, etc. via woocommerce_admin_billing/shipping_fields.
+	 *
+	 * O WC Blocks (CheckoutFieldsAdmin) injeta os mesmos dados de duas formas:
+	 * - admin_address_fields(): usa array_splice (perde as chaves string, ficam numéricas)
+	 * - admin_order_fields()/admin_contact_fields(): usa array_merge (preserva chaves string)
+	 *
+	 * Precisamos remover por ambos os mecanismos: por chave string E por atributo 'id'.
+	 */
+	public static function remove_duplicate_admin_fields(array $fields): array
+	{
+		$ns_prefix = self::FIELD_NS . '/';
+
+		foreach ($fields as $key => $field) {
+			// Campos inseridos via array_merge mantêm chave string (ex: 'braspag-wcbcf/cpf')
+			if (is_string($key) && strpos($key, $ns_prefix) === 0) {
+				unset($fields[$key]);
+				continue;
+			}
+
+			// Campos inseridos via array_splice perdem a chave string (fica numérica).
+			// O 'id' do campo contém o prefixo do grupo WC Blocks (ex: '_wc_shipping/braspag-wcbcf/number').
+			if (is_array($field) && isset($field['id']) && strpos($field['id'], $ns_prefix) !== false) {
+				unset($fields[$key]);
+			}
+		}
+
+		return $fields;
 	}
 
 	/**
@@ -480,30 +540,54 @@ class WC_Braspag_Blocks_ECFB_Bridge
 
 		$number = '';
 
+		// Procurar o campo número com múltiplos fallbacks
 		if (isset($fields[self::FIELD_NS . '/number'])) {
 			$number = self::sanitize_text($fields[self::FIELD_NS . '/number']);
 		} elseif (isset($fields['number'])) {
 			$number = self::sanitize_text($fields['number']);
+		} else {
+			// Verificar se há um campo de número no endereço padrão
+			if (function_exists('WC') && WC()->customer) {
+				$address = $group === 'billing' ? WC()->customer->get_billing() : WC()->customer->get_shipping();
+				if (isset($address['number']) && !empty($address['number'])) {
+					$number = self::sanitize_text($address['number']);
+				}
+			}
 		}
 
-		if ($number === '') {
+		// Só validar se realmente necessário (não campos preenchidos anteriormente)
+		if ($number === '' && !self::has_existing_number($group)) {
 			$errors->add('missing_number', __('Número é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 		}
 
-		$neighborhood_required = !empty($settings['neighborhood_required']);
+		// Validação de bairro similar...
+		$neighborhood_required = isset($settings['neighborhood_required']) ? (bool) $settings['neighborhood_required'] : false;
+
 		if ($neighborhood_required) {
 			$neighborhood = '';
-
 			if (isset($fields[self::FIELD_NS . '/neighborhood'])) {
 				$neighborhood = self::sanitize_text($fields[self::FIELD_NS . '/neighborhood']);
-			} elseif (isset($fields['neighborhood'])) {
-				$neighborhood = self::sanitize_text($fields['neighborhood']);
 			}
 
 			if ($neighborhood === '') {
 				$errors->add('missing_neighborhood', __('Bairro é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 			}
 		}
+	}
+
+	public static function has_existing_number($group)
+	{
+		if (!function_exists('WC') || !WC()->customer) {
+			return false;
+		}
+
+		$meta_key = ($group === 'billing') ? '_billing_number' : '_shipping_number';
+
+		if (WC()->customer->get_meta($meta_key)) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

@@ -1,5 +1,10 @@
 (function () {
     const NS = 'braspag-wcbcf';
+    const lastValues = {
+        cpf: '',
+        cnpj: '',
+        cellphone: '',
+    };
 
     function q(sel, root = document) { return root.querySelector(sel); }
 
@@ -35,15 +40,16 @@
     }
 
     function findFieldInput(field) {
-        // tenta name
-        let el = q(`select[name*="${NS}/${field}"], input[name*="${NS}/${field}"]`);
+        // Busca estrita pelo namespace do bridge para coexistir com ECFB ativo.
+        let el = q(`select[name="${NS}/${field}"], input[name="${NS}/${field}"]`);
         if (el) return el;
 
-        // tenta id
+        el = q(`select[name*="${NS}/${field}"], input[name*="${NS}/${field}"]`);
+        if (el) return el;
+
         el = q(`select[id*="${NS}-${field}"], input[id*="${NS}-${field}"]`);
         if (el) return el;
 
-        // fallback super permissivo (algumas versões mudam “/”)
         el = q(`select[name*="${field}"][name*="${NS}"], input[name*="${field}"][name*="${NS}"]`);
         if (el) return el;
 
@@ -53,7 +59,6 @@
     function fieldWrapper(el) {
         if (!el) return null;
 
-        // wrappers típicos do Blocks
         return (
             el.closest('.wc-block-components-text-input') ||
             el.closest('.wc-block-components-select-control') ||
@@ -62,32 +67,156 @@
         );
     }
 
-    function setMask(input, type) {
+    // Usa o setter nativo do HTMLInputElement para contornar o value tracker
+    // do React, garantindo que alterações programáticas de value sejam
+    // detectadas pelo onChange do React (WooCommerce Blocks).
+    const nativeInputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const nativeSelectSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+
+    function syncField(input) {
         if (!input) return;
+        var val = input.value;
+        var setter = input.tagName === 'SELECT' ? nativeSelectSetter : nativeInputSetter;
+        if (setter) {
+            setter.call(input, val);
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
 
-        // evita listeners duplicados
-        const key = `mask_${type}`;
-        if (input.dataset[key] === '1') return;
-        input.dataset[key] = '1';
+    function setInputValue(input, value) {
+        nativeInputSetter.call(input, value);
+    }
 
-        if (type === 'cpf') {
-            input.inputMode = 'numeric';
-            input.pattern = '\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}';
-            input.addEventListener('input', () => { input.value = maskCPF(input.value); }, { passive: true });
-            input.value = maskCPF(input.value);
+    function attachCPFMask(input) {
+        if (!input || input.dataset.maskCpfBraspag === '1') return;
+        input.dataset.maskCpfBraspag = '1';
+
+        input.inputMode = 'numeric';
+        input.pattern = '\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}';
+
+        let lastKnownValue = input.value ? maskCPF(input.value) : '';
+        if (lastKnownValue) {
+            setInputValue(input, lastKnownValue);
+            lastValues.cpf = lastKnownValue;
+            syncField(input);
+        } else if (!input.value && lastValues.cpf) {
+            setInputValue(input, lastValues.cpf);
+            lastKnownValue = lastValues.cpf;
+            syncField(input);
         }
 
-        if (type === 'cnpj') {
-            input.inputMode = 'numeric';
-            input.pattern = '\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}';
-            input.addEventListener('input', () => { input.value = maskCNPJ(input.value); }, { passive: true });
-            input.value = maskCNPJ(input.value);
-        }
+        input.addEventListener('input', () => {
+            const cursorPos = input.selectionStart || 0;
+            const oldLength = input.value.length;
+            const masked = maskCPF(input.value);
+            setInputValue(input, masked);
 
-        if (type === 'cellphone') {
-            input.inputMode = 'tel';
-            input.addEventListener('input', () => { input.value = maskPhone(input.value); }, { passive: true });
-            input.value = maskPhone(input.value);
+            if (masked) {
+                lastKnownValue = masked;
+                lastValues.cpf = masked;
+                input.setAttribute('data-last-known-value', masked);
+            }
+
+            const newLength = input.value.length;
+            const newCursorPos = Math.max(0, cursorPos + (newLength - oldLength));
+            input.setSelectionRange(newCursorPos, newCursorPos);
+        }, { passive: false });
+
+        input.addEventListener('change', () => {
+            if (input.value) {
+                lastKnownValue = maskCPF(input.value);
+                lastValues.cpf = lastKnownValue;
+                input.setAttribute('data-last-known-value', lastKnownValue);
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            if (input.value) {
+                setInputValue(input, maskCPF(input.value));
+                lastKnownValue = input.value;
+                lastValues.cpf = lastKnownValue;
+                input.setAttribute('data-last-known-value', lastKnownValue);
+                syncField(input);
+            }
+
+            // Alguns scripts de terceiros limpam o campo no blur; restaura o último valor.
+            setTimeout(() => {
+                if (!input.value && lastKnownValue) {
+                    setInputValue(input, lastKnownValue);
+                    syncField(input);
+                }
+
+                const liveCpf = findFieldInput('cpf');
+                if (liveCpf && !liveCpf.value && lastValues.cpf) {
+                    setInputValue(liveCpf, lastValues.cpf);
+                    syncField(liveCpf);
+                }
+            }, 40);
+
+            setTimeout(() => {
+                if (!input.value && lastKnownValue) {
+                    setInputValue(input, lastKnownValue);
+                    syncField(input);
+                }
+
+                const liveCpf = findFieldInput('cpf');
+                if (liveCpf && !liveCpf.value && lastValues.cpf) {
+                    setInputValue(liveCpf, lastValues.cpf);
+                    syncField(liveCpf);
+                }
+            }, 180);
+        });
+    }
+
+    function attachCNPJMask(input) {
+        if (!input || input.dataset.maskCnpjBraspag === '1') return;
+        input.dataset.maskCnpjBraspag = '1';
+
+        input.inputMode = 'numeric';
+        input.pattern = '\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}';
+
+        input.addEventListener('input', () => {
+            const cursorPos = input.selectionStart || 0;
+            const oldLength = input.value.length;
+            setInputValue(input, maskCNPJ(input.value));
+            const newLength = input.value.length;
+            const newCursorPos = Math.max(0, cursorPos + (newLength - oldLength));
+            input.setSelectionRange(newCursorPos, newCursorPos);
+        }, { passive: false });
+
+        input.addEventListener('blur', () => {
+            if (input.value) {
+                setInputValue(input, maskCNPJ(input.value));
+                syncField(input);
+            }
+        });
+
+        if (input.value) {
+            setInputValue(input, maskCNPJ(input.value));
+            lastValues.cnpj = input.value;
+            syncField(input);
+        }
+    }
+
+    function attachCellphoneMask(input) {
+        if (!input || input.dataset.maskCellphoneBraspag === '1') return;
+        input.dataset.maskCellphoneBraspag = '1';
+
+        input.inputMode = 'tel';
+        input.addEventListener('input', () => { setInputValue(input, maskPhone(input.value)); }, { passive: true });
+        input.addEventListener('blur', () => {
+            if (input.value) {
+                setInputValue(input, maskPhone(input.value));
+                lastValues.cellphone = input.value;
+                syncField(input);
+            }
+        });
+
+        if (input.value) {
+            setInputValue(input, maskPhone(input.value));
+            lastValues.cellphone = input.value;
+            syncField(input);
         }
     }
 
@@ -101,9 +230,9 @@
         const ie = findFieldInput('ie');
         const cellphone = findFieldInput('cellphone');
 
-        setMask(cpf, 'cpf');
-        setMask(cnpj, 'cnpj');
-        setMask(cellphone, 'cellphone');
+        attachCPFMask(cpf);
+        attachCNPJMask(cnpj);
+        attachCellphoneMask(cellphone);
 
         const cpfW = fieldWrapper(cpf);
         const cnpjW = fieldWrapper(cnpj);
@@ -113,18 +242,17 @@
         function updateVisibility() {
             const v = personType.value;
 
-            if (v === '1') { // PF
+            if (v === '1') {
                 if (cpfW) cpfW.style.display = '';
                 if (rgW) rgW.style.display = '';
                 if (cnpjW) cnpjW.style.display = 'none';
                 if (ieW) ieW.style.display = 'none';
-            } else if (v === '2') { // PJ
+            } else if (v === '2') {
                 if (cnpjW) cnpjW.style.display = '';
                 if (ieW) ieW.style.display = '';
                 if (cpfW) cpfW.style.display = 'none';
                 if (rgW) rgW.style.display = 'none';
             } else {
-                // sem seleção
                 if (cpfW) cpfW.style.display = 'none';
                 if (rgW) rgW.style.display = 'none';
                 if (cnpjW) cnpjW.style.display = 'none';
@@ -132,23 +260,49 @@
             }
         }
 
-        // evita duplicar listener
         if (personType.dataset.ptListener !== '1') {
             personType.dataset.ptListener = '1';
             personType.addEventListener('change', updateVisibility, { passive: true });
         }
+
         updateVisibility();
+    }
+
+    function preserveAddressFields() {
+        setTimeout(() => {
+            const numberField = findFieldInput('number') || q('input[name*="number"][name*="braspag-wcbcf"]');
+            const neighborhoodField = findFieldInput('neighborhood') || q('input[name*="neighborhood"][name*="braspag-wcbcf"]');
+
+            [numberField, neighborhoodField].forEach((field) => {
+                if (field && !field.dataset.preserveListener) {
+                    field.dataset.preserveListener = '1';
+
+                    field.addEventListener('blur', () => {
+                        if (field.value) {
+                            syncField(field);
+                        }
+                    });
+                }
+            });
+        }, 100);
     }
 
     function boot() {
         applyPersonTypeUI();
+
+        const liveCpf = findFieldInput('cpf');
+        if (liveCpf && !liveCpf.value && lastValues.cpf) {
+            setInputValue(liveCpf, lastValues.cpf);
+            syncField(liveCpf);
+        }
+
+        preserveAddressFields();
     }
 
-    // throttle simples (evita rodar 200x por segundo)
     let t = null;
     const mo = new MutationObserver(() => {
         clearTimeout(t);
-        t = setTimeout(boot, 50);
+        t = setTimeout(boot, 120);
     });
 
     mo.observe(document.documentElement, { childList: true, subtree: true });

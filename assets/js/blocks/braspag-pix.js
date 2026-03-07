@@ -13,7 +13,23 @@
             null,
             settings.description
                 ? el('div', { className: 'wc-braspag-blocks-desc' }, settings.description)
-                : null
+                : null,
+            el('div', 
+                { 
+                    className: 'wc-braspag-blocks-document-notice',
+                    style: {
+                        padding: '12px',
+                        backgroundColor: '#f0f6ff',
+                        border: '1px solid #c3dafe',
+                        borderRadius: '6px',
+                        margin: '12px 0',
+                        fontSize: '14px',
+                        color: '#1e40af'
+                    }
+                },
+                el('strong', null, '📄 Documento obrigatório: '),
+                'Certifique-se de preencher seu CPF ou CNPJ nos dados de cobrança para utilizar o PIX.'
+            )
         );
 
     registerPaymentMethod({

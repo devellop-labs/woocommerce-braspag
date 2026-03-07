@@ -590,6 +590,19 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         $cpf = preg_replace('/\D+/', '', (string) $order->get_meta('_billing_cpf'));
         $cnpj = preg_replace('/\D+/', '', (string) $order->get_meta('_billing_cnpj'));
 
+        // Fallbacks para checkout blocks (braspag-wcbcf)
+        if ($cpf === '') {
+            $cpf = preg_replace('/\D+/', '', (string) $order->get_meta('braspag-wcbcf/cpf'));
+        }
+        if ($cnpj === '') {
+            $cnpj = preg_replace('/\D+/', '', (string) $order->get_meta('braspag-wcbcf/cnpj'));
+        }
+
+        // Fallback para persontype do checkout blocks
+        if ($personType === '') {
+            $personType = (string) $order->get_meta('braspag-wcbcf/persontype');
+        }
+
         if ($personType === '1' || (!$personType && $cpf)) {
             return ['type' => 'CPF', 'value' => $cpf ?: ''];
         }
@@ -603,6 +616,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         if ($doc === '') {
             $doc = (string) $order->get_meta('_billing_document');
         }
+
         $doc = preg_replace('/\D+/', '', $doc);
 
         if ($doc !== '') {
