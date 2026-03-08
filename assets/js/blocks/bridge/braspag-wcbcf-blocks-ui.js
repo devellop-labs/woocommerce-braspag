@@ -292,7 +292,7 @@
 
         const liveCpf = findFieldInput('cpf');
         if (liveCpf && !liveCpf.value && lastValues.cpf) {
-            setInputValue(liveCpf, lastValues.cpf);
+            liveCpf.value = lastValues.cpf;
             syncField(liveCpf);
         }
 

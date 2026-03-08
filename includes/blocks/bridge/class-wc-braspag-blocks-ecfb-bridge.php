@@ -95,7 +95,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				'braspag-wcbcf-blocks-ui',
 				plugins_url('assets/js/blocks/bridge/braspag-wcbcf-blocks-ui.js', WC_BRASPAG_MAIN_FILE),
 				array(),
-				'1.0.2',
+				'1.0.4',
 				true
 			);
 		}, 20);
@@ -158,6 +158,38 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					),
 				),
 				'required' => array('billing_address'),
+			),
+		);
+	}
+
+	private static function get_person_document_required_rule(int $person_type_mode, string $person_type)
+	{
+		if (2 === $person_type_mode) {
+			return '1' === $person_type;
+		}
+
+		if (3 === $person_type_mode) {
+			return '2' === $person_type;
+		}
+
+		if (1 !== $person_type_mode) {
+			return false;
+		}
+
+		return array(
+			'checkout' => array(
+				'properties' => array(
+					'additional_fields' => array(
+						'type' => 'object',
+						'properties' => array(
+							self::FIELD_NS . '/persontype' => array(
+								'const' => $person_type,
+							),
+						),
+						'required' => array(self::FIELD_NS . '/persontype'),
+					),
+				),
+				'required' => array('additional_fields'),
 			),
 		);
 	}
@@ -306,7 +338,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('CPF', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => true,
+					'required' => self::get_person_document_required_rule($person_type_mode, '1'),
 					'sanitize_callback' => array(__CLASS__, 'sanitize_digits'),
 					'validate_callback' => function ($value) use ($settings) {
 						$value = WC_Braspag_Blocks_ECFB_Bridge::sanitize_digits($value);
@@ -340,7 +372,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 					'label' => __('CNPJ', 'woocommerce-extra-checkout-fields-for-brazil'),
 					'location' => 'order',
 					'type' => 'text',
-					'required' => false,
+					'required' => self::get_person_document_required_rule($person_type_mode, '2'),
 					'sanitize_callback' => array(__CLASS__, 'sanitize_digits'),
 					'validate_callback' => function ($value) use ($settings) {
 						$value = WC_Braspag_Blocks_ECFB_Bridge::sanitize_digits($value);
