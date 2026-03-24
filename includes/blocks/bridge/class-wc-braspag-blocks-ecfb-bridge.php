@@ -15,6 +15,12 @@ if (!defined('ABSPATH')) {
 
 class WC_Braspag_Blocks_ECFB_Bridge
 {
+	/**
+	 * Request REST atual durante o ciclo do Store API.
+	 *
+	 * @var \WP_REST_Request|null
+	 */
+	private static $current_rest_request = null;
 
 	/**
 	 * Option name do plugin woocommerce-extra-checkout-fields-for-brazil
@@ -45,6 +51,11 @@ class WC_Braspag_Blocks_ECFB_Bridge
 
 	public static function init()
 	{
+		add_filter('rest_request_before_callbacks', array(__CLASS__, 'capture_current_rest_request'), 10, 3);
+		add_filter('rest_request_after_callbacks', array(__CLASS__, 'release_current_rest_request'), 10, 3);
+		add_filter('option_woocommerce_checkout_company_field', array(__CLASS__, 'force_company_field_visibility'));
+		add_filter('default_option_woocommerce_checkout_company_field', array(__CLASS__, 'force_company_field_visibility'));
+
 		// Registra campos no Blocks (Additional Checkout Fields API)
 		add_action('woocommerce_init', array(__CLASS__, 'register_blocks_fields'), 20);
 
@@ -95,7 +106,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				'braspag-wcbcf-blocks-ui',
 				plugins_url('assets/js/blocks/bridge/braspag-wcbcf-blocks-ui.js', WC_BRASPAG_MAIN_FILE),
 				array(),
-				'1.0.4',
+				'1.0.9',
 				true
 			);
 		}, 20);
@@ -124,6 +135,152 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		}
 
 		return $settings;
+	}
+
+	public static function capture_current_rest_request($response, $handler, $request)
+	{
+		if ($request instanceof \WP_REST_Request) {
+			self::$current_rest_request = $request;
+		}
+
+		return $response;
+	}
+
+	public static function release_current_rest_request($response, $handler, $request)
+	{
+		if (self::$current_rest_request === $request) {
+			self::$current_rest_request = null;
+		}
+
+		return $response;
+	}
+
+	public static function force_company_field_visibility($value)
+	{
+		if (self::is_checkout_blocks_context()) {
+			return 'optional';
+		}
+
+		return $value;
+	}
+
+	private static function is_checkout_blocks_context(): bool
+	{
+		$request = self::get_current_rest_request();
+
+		if ($request instanceof \WP_REST_Request) {
+			$route = (string) $request->get_route();
+
+			if (false !== strpos($route, '/wc/store/v1/checkout') || false !== strpos($route, '/wc/store/v1/cart')) {
+				return true;
+			}
+		}
+
+		if (!function_exists('is_checkout') || !is_checkout()) {
+			return false;
+		}
+
+		if (!function_exists('has_block')) {
+			return true;
+		}
+
+		$post = get_post();
+
+		return !$post || has_block('woocommerce/checkout', $post);
+	}
+
+	private static function get_current_rest_request()
+	{
+		return self::$current_rest_request instanceof \WP_REST_Request ? self::$current_rest_request : null;
+	}
+
+	private static function is_partial_checkout_request(): bool
+	{
+		$request = self::get_current_rest_request();
+
+		if (!$request instanceof \WP_REST_Request) {
+			return false;
+		}
+
+		if (false === strpos((string) $request->get_route(), '/wc/store/v1/checkout')) {
+			return false;
+		}
+
+		return in_array($request->get_method(), array('PUT', 'PATCH'), true);
+	}
+
+	private static function get_request_address_payload(string $group): array
+	{
+		$request = self::get_current_rest_request();
+
+		if (!$request instanceof \WP_REST_Request) {
+			return array();
+		}
+
+		$param = ('shipping' === $group) ? 'shipping_address' : 'billing_address';
+		$address = $request->get_param($param);
+		$address = is_array($address) ? $address : array();
+
+		if ('shipping' === $group && empty($address)) {
+			$billing_address = $request->get_param('billing_address');
+			if (is_array($billing_address)) {
+				return $billing_address;
+			}
+		}
+
+		return $address;
+	}
+
+	private static function has_request_address_field(string $group, array $keys): bool
+	{
+		$address = self::get_request_address_payload($group);
+
+		foreach ($keys as $key) {
+			if (array_key_exists($key, $address)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static function get_request_address_value(string $group, array $keys): string
+	{
+		$address = self::get_request_address_payload($group);
+
+		foreach ($keys as $key) {
+			if (isset($address[$key])) {
+				return is_string($address[$key]) ? $address[$key] : '';
+			}
+		}
+
+		return '';
+	}
+
+	private static function get_customer_address_value(string $group, string $key): string
+	{
+		if (!function_exists('WC') || !WC()->customer) {
+			return '';
+		}
+
+		$getter = ('billing' === $group) ? 'get_billing' : 'get_shipping';
+
+		if (!method_exists(WC()->customer, $getter)) {
+			return '';
+		}
+
+		$address = WC()->customer->$getter();
+
+		if (is_array($address) && isset($address[$key])) {
+			return is_string($address[$key]) ? $address[$key] : '';
+		}
+
+		return '';
+	}
+
+	private static function should_validate_missing_value(bool $was_submitted): bool
+	{
+		return !self::is_partial_checkout_request() || $was_submitted;
 	}
 
 	private static function is_brazil_only_required(array $settings, string $country): bool
@@ -596,6 +753,8 @@ class WC_Braspag_Blocks_ECFB_Bridge
 	public static function validate_address_fields($errors, $fields, $group)
 	{
 		$settings = self::get_settings();
+		$number_keys = array(self::FIELD_NS . '/number', 'number');
+		$number_submitted = self::has_request_address_field($group, $number_keys);
 
 		$number = '';
 
@@ -604,18 +763,15 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			$number = self::sanitize_text($fields[self::FIELD_NS . '/number']);
 		} elseif (isset($fields['number'])) {
 			$number = self::sanitize_text($fields['number']);
+		} elseif ($number_submitted) {
+			$number = self::sanitize_text(self::get_request_address_value($group, $number_keys));
 		} else {
 			// Verificar se há um campo de número no endereço padrão
-			if (function_exists('WC') && WC()->customer) {
-				$address = $group === 'billing' ? WC()->customer->get_billing() : WC()->customer->get_shipping();
-				if (isset($address['number']) && !empty($address['number'])) {
-					$number = self::sanitize_text($address['number']);
-				}
-			}
+			$number = self::sanitize_text(self::get_customer_address_value($group, 'number'));
 		}
 
 		// Só validar se realmente necessário (não campos preenchidos anteriormente)
-		if ($number === '' && !self::has_existing_number($group)) {
+		if ($number === '' && self::should_validate_missing_value($number_submitted) && !self::has_existing_number($group)) {
 			$errors->add('missing_number', __('Número é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 		}
 
@@ -624,11 +780,18 @@ class WC_Braspag_Blocks_ECFB_Bridge
 
 		if ($neighborhood_required) {
 			$neighborhood = '';
+			$neighborhood_keys = array(self::FIELD_NS . '/neighborhood', 'neighborhood');
+			$neighborhood_submitted = self::has_request_address_field($group, $neighborhood_keys);
+
 			if (isset($fields[self::FIELD_NS . '/neighborhood'])) {
 				$neighborhood = self::sanitize_text($fields[self::FIELD_NS . '/neighborhood']);
+			} elseif (isset($fields['neighborhood'])) {
+				$neighborhood = self::sanitize_text($fields['neighborhood']);
+			} elseif ($neighborhood_submitted) {
+				$neighborhood = self::sanitize_text(self::get_request_address_value($group, $neighborhood_keys));
 			}
 
-			if ($neighborhood === '') {
+			if ($neighborhood === '' && self::should_validate_missing_value($neighborhood_submitted)) {
 				$errors->add('missing_neighborhood', __('Bairro é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 			}
 		}
@@ -643,6 +806,11 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		$meta_key = ($group === 'billing') ? '_billing_number' : '_shipping_number';
 
 		if (WC()->customer->get_meta($meta_key)) {
+			return true;
+		}
+
+		$address = ('billing' === $group) ? WC()->customer->get_billing() : WC()->customer->get_shipping();
+		if (is_array($address) && !empty($address['number'])) {
 			return true;
 		}
 
@@ -681,7 +849,9 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		// ---------------------
 		if (0 !== $person_type_mode) {
 			$selected_person = '';
-			if (isset($fields[self::FIELD_NS . '/persontype'])) {
+			$person_type_submitted = array_key_exists(self::FIELD_NS . '/persontype', $fields);
+
+			if ($person_type_submitted) {
 				$selected_person = self::sanitize_digits((string) $fields[self::FIELD_NS . '/persontype']);
 			}
 
@@ -692,6 +862,10 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			if (1 === $person_type_mode) {
 				// PF/PJ (seleção obrigatória)
 				if ('' === $selected_person) {
+					if (!self::should_validate_missing_value($person_type_submitted)) {
+						return;
+					}
+
 					$errors->add('missing_persontype', __('Selecione o tipo de pessoa.', 'woocommerce-extra-checkout-fields-for-brazil'));
 					// sem tipo, não dá pra decidir - mas já acusa erro
 					return;
@@ -708,10 +882,13 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			}
 
 			if ($need_cpf) {
-				$cpf = isset($fields[self::FIELD_NS . '/cpf']) ? self::sanitize_digits($fields[self::FIELD_NS . '/cpf']) : '';
+				$cpf_submitted = array_key_exists(self::FIELD_NS . '/cpf', $fields);
+				$cpf = $cpf_submitted ? self::sanitize_digits($fields[self::FIELD_NS . '/cpf']) : '';
 
 				if ('' === $cpf) {
-					$errors->add('missing_cpf', __('CPF é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
+					if (self::should_validate_missing_value($cpf_submitted)) {
+						$errors->add('missing_cpf', __('CPF é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
+					}
 				} else {
 					$validate_cpf = isset($settings['validate_cpf']) ? (bool) $settings['validate_cpf'] : false;
 					if ($validate_cpf && !self::is_valid_cpf($cpf)) {
@@ -720,27 +897,32 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				}
 
 				if (!empty($settings['rg'])) {
-					$rg = isset($fields[self::FIELD_NS . '/rg']) ? self::sanitize_text($fields[self::FIELD_NS . '/rg']) : '';
-					if ('' === $rg) {
+					$rg_submitted = array_key_exists(self::FIELD_NS . '/rg', $fields);
+					$rg = $rg_submitted ? self::sanitize_text($fields[self::FIELD_NS . '/rg']) : '';
+					if ('' === $rg && self::should_validate_missing_value($rg_submitted)) {
 						$errors->add('missing_rg', __('RG é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
 					}
 				}
 			}
 
 			if ($need_cnpj) {
-				// company (campo core do checkout)
-				$company = '';
-				if (function_exists('WC') && WC()->customer) {
-					$company = (string) WC()->customer->get_billing_company();
+				$company_submitted = self::has_request_address_field('billing', array('company', 'billing_company'));
+				$company = self::sanitize_text(self::get_request_address_value('billing', array('company', 'billing_company')));
+
+				if ('' === $company && function_exists('WC') && WC()->customer) {
+					$company = self::sanitize_text((string) WC()->customer->get_billing_company());
 				}
 
-				if ('' === trim($company)) {
+				if ('' === trim($company) && self::should_validate_missing_value($company_submitted)) {
 					$errors->add('missing_company', __('Razão Social é obrigatória para Pessoa Jurídica.', 'woocommerce-extra-checkout-fields-for-brazil'));
 				}
 
-				$cnpj = isset($fields[self::FIELD_NS . '/cnpj']) ? self::sanitize_digits($fields[self::FIELD_NS . '/cnpj']) : '';
+				$cnpj_submitted = array_key_exists(self::FIELD_NS . '/cnpj', $fields);
+				$cnpj = $cnpj_submitted ? self::sanitize_digits($fields[self::FIELD_NS . '/cnpj']) : '';
 				if ('' === $cnpj) {
-					$errors->add('missing_cnpj', __('CNPJ é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
+					if (self::should_validate_missing_value($cnpj_submitted)) {
+						$errors->add('missing_cnpj', __('CNPJ é obrigatório.', 'woocommerce-extra-checkout-fields-for-brazil'));
+					}
 				} else {
 					$validate_cnpj = isset($settings['validate_cnpj']) ? (bool) $settings['validate_cnpj'] : false;
 					if ($validate_cnpj && !self::is_valid_cnpj($cnpj)) {
@@ -749,8 +931,9 @@ class WC_Braspag_Blocks_ECFB_Bridge
 				}
 
 				if (!empty($settings['ie'])) {
-					$ie = isset($fields[self::FIELD_NS . '/ie']) ? self::sanitize_text($fields[self::FIELD_NS . '/ie']) : '';
-					if ('' === $ie) {
+					$ie_submitted = array_key_exists(self::FIELD_NS . '/ie', $fields);
+					$ie = $ie_submitted ? self::sanitize_text($fields[self::FIELD_NS . '/ie']) : '';
+					if ('' === $ie && self::should_validate_missing_value($ie_submitted)) {
 						$errors->add('missing_ie', __('Inscrição Estadual é obrigatória.', 'woocommerce-extra-checkout-fields-for-brazil'));
 					}
 				}
