@@ -847,7 +847,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "ObscenitiesHedge" => "Off",
                 "PhoneHedge" => "Off",
                 "Name" => $cart_content['data']->get_name(),
-                "Quantity" => $cart_content['quantity'],
+                "Quantity" => isset($cart_content['quantity']) ? (int) $cart_content['quantity'] : 1,
                 "Sku" => $cart_content['data']->get_sku(),
                 "UnitPrice" => intval($cart_content['data']->get_price() * 100),
             ];
