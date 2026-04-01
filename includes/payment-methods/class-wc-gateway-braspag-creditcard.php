@@ -389,7 +389,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 }
 
                 if (!empty($response->errors)) {
-
                     if ($this->is_retryable_error($response)) {
                         return $this->retry_after_error($response, $order, $retry, $previous_error, $use_order_source);
                     }
@@ -487,13 +486,21 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
             case '5':
                 $appendMpi = ($this->auth3ds20_mpi_authorize_on_unsupported_brand === 'no');
                 break;
+            default:
+                $appendMpi = true;
+                break;
         }
 
         $cardType = (string) $checkout->get_value('braspag_creditcard-card-type');
         $provider = (string) $this->get_braspag_payment_provider($cardType, $this->test_mode);
+        $isCielo = (bool) preg_match('#cielo#i', $provider);
 
-        if (!$appendMpi && !$this->test_mode && $failureType !== '3' && !preg_match('#cielo#i', $provider)) {
+        if (!$this->test_mode && $failureType !== '3' && !$isCielo) {
             $appendMpi = true;
+        }
+
+        if (!$appendMpi) {
+            return;
         }
 
         $message .= " #MPI{$failureType}";
@@ -586,8 +593,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $customer_wants_to_save_card = $checkout->get_value('wc-braspag_creditcard-new-payment-method') == 'true';
         $brandCard = $checkout->get_value('braspag_creditcard-card-type');
 
-        WC_Braspag_Logger::log('SOP: ' . $this->sop_enabled . 'saved card: ' . $this->save_card);
-
         $card_data = [
             "Holder" => $checkout->get_value('braspag_creditcard-card-holder'),
             "ExpirationDate" => $card_expiration_date,
@@ -599,13 +604,11 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         if ($this->sop_enabled === 'yes') {
             if ($this->save_card == 'yes' && $customer_wants_to_save_card && $this->sop_tokenize === 'yes') {
                 $returnData = $checkout->get_value('braspag_creditcard-card-cardtoken');
-                WC_Braspag_Logger::log('Card Token: ' . print_r($returnData, true));
                 $cardnumber = [
                     "CardToken" => $returnData
                 ];
             } else {
                 $returnData = $checkout->get_value('braspag_creditcard-card-paymenttoken');
-                WC_Braspag_Logger::log('Payment Token: ' . print_r($returnData, true));
                 $cardnumber = [
                     "PaymentToken" => $returnData
                 ];
@@ -827,7 +830,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         if (
             'yes' !== $this->antifraud_enabled
             || 'yes' !== $this->antifraud_send_with_pagador_transaction
-            || 'yes' === $this->auth3ds20_mpi_is_active
+            // || 'yes' === $this->auth3ds20_mpi_is_active
             || 'yes' === $this->sop_enabled
         ) {
             return $payment_data;
@@ -837,7 +840,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
 
         $fraudAnalysCartItems = [];
         foreach ($cart->get_cart_contents() as $cart_content) {
-
             $fraudAnalysCartItems[] = [
                 "GiftCategory" => "Undefined",
                 "HostHedge" => "Off",
@@ -845,7 +847,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "ObscenitiesHedge" => "Off",
                 "PhoneHedge" => "Off",
                 "Name" => $cart_content['data']->get_name(),
-                "Quantity" => $cart_content->quantity,
+                "Quantity" => $cart_content['quantity'],
                 "Sku" => $cart_content['data']->get_sku(),
                 "UnitPrice" => intval($cart_content['data']->get_price() * 100),
             ];
@@ -937,6 +939,31 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
     {
         if ('yes' !== $this->auth3ds20_mpi_is_active) {
             return $payment_data;
+        }
+
+        $failureType = (string) $checkout->get_value('bpmpi_auth_failure_type');
+
+        if ($failureType !== '' && $failureType !== '0') {
+            $block = true;
+
+            switch ($failureType) {
+                case '4':
+                    $block = ($this->auth3ds20_mpi_authorize_on_error === 'no');
+                    break;
+                case '1':
+                    $block = ($this->auth3ds20_mpi_authorize_on_failure === 'no');
+                    break;
+                case '2':
+                    $block = ($this->auth3ds20_mpi_authorize_on_unenrolled === 'no');
+                    break;
+                case '5':
+                    $block = ($this->auth3ds20_mpi_authorize_on_unsupported_brand === 'no');
+                    break;
+            }
+
+            if ($block === false) {
+                return $payment_data;
+            }
         }
 
         $payment_data_auth3ds20_data = [
