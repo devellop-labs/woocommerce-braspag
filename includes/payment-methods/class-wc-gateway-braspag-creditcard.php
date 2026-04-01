@@ -100,11 +100,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $this->capture = 'authorize_capture' === $this->get_option('payment_action', 'authorize');
         $this->save_card = $this->get_option('save_card');
 
-        if (WC()->cart) {
-            $this->antifraud_finger_print_id = WC()->cart->get_cart_hash();
-            $this->antifraud_finger_print_session_id = $this->antifraud_finger_print_merchant_id . $this->antifraud_finger_print_id;
-            $this->init_antifraud_settings($braspag_main_settings);
-        }
+        $this->init_antifraud_settings($braspag_main_settings);
 
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
         add_action('woocommerce_customer_save_address', array($this, 'show_update_card_notice'), 10, 2);
@@ -295,8 +291,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         $fields = wp_parse_args($fields, apply_filters('woocommerce_credit_card_form_fields', $default_fields, $this->id));
 
         ?>
-            <?php echo $this->get_antifraud_noscript_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-                    <noscript><iframe src="<?php echo "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}" ?>"></iframe></noscript>
+                <?php echo $this->get_antifraud_noscript_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
                     <fieldset id="wc-<?php echo esc_attr($this->id); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
                         <?php do_action('woocommerce_credit_card_form_start', $this->id); ?>
@@ -721,7 +716,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "UnitPrice" => intval($cart_content['data']->get_price() * 100),
                 "MerchantItemId" => $cart_content['data']->get_id(),
                 "Sku" => $cart_content['data']->get_sku(),
-                "Quantity" => $cart_content->quantity
+                "Quantity" => isset($cart_content['quantity']) ? (int) $cart_content['quantity'] : 1
             ];
         }
 
@@ -776,7 +771,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "BrowserHostName" => gethostname(),
                 "BrowserCookiesAccepted" => false,
                 "BrowserEmail" => $order->get_billing_email(),
-                "BrowserFingerprint" => $this->get_antifraud_browser_fingerprint()
+                "BrowserFingerprint" => $this->get_antifraud_browser_fingerprint($order)
             ],
             "CartItems" => $fraudAnalysCartItems,
             "MerchantDefinedData" => [
@@ -895,10 +890,10 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
             "CaptureOnLowRisk" => 'yes' === $this->antifraud_options_capture_on_low_risk ? true : false,
             "VoidOnHighRisk" => 'yes' === $this->antifraud_options_void_on_righ_risk ? true : false,
             "TotalOrderAmount" => intval($order->get_total() * 100),
-            "FingerPrintId" => $this->get_antifraud_browser_fingerprint(),
+            "FingerPrintId" => $this->get_antifraud_browser_fingerprint($order),
             "Browser" => [
                 "CookiesAccepted" => false,
-                "BrowserFingerprint" => $this->get_antifraud_browser_fingerprint(),
+                "BrowserFingerprint" => $this->get_antifraud_browser_fingerprint($order),
                 "Email" => $order->get_billing_email(),
                 "HostName" => substr(gethostname(), 0, 60),
                 "IpAddress" => $order->get_customer_ip_address()
