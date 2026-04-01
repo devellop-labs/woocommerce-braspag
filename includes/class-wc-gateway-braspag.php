@@ -19,10 +19,13 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     protected $test_mode;
     protected $antifraud_enabled;
     protected $antifraud_status;
+    protected $antifraud_provider;
     protected $antifraud_finger_print_org_id;
     protected $antifraud_finger_print_session_id;
     protected $antifraud_finger_print_merchant_id;
     protected $antifraud_finger_print_id;
+    protected $antifraud_clearsale_app_key;
+    protected $antifraud_generated_session_id;
     protected $extra_data_collection;
     protected $soft_descriptor;
     protected $silentorderpost_enabled;
@@ -59,19 +62,11 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         $this->auth3DS_enabled = $this->get_option('auth3ds20_mpi_is_active');
         $this->verifycard_enabled = $this->get_option('verifycard_enabled');
 
-        $this->antifraud_enabled = 'yes' === $this->get_option('antifraud_enabled');
-        $this->antifraud_finger_print_org_id = $this->get_option('antifraud_finger_print_org_id');
-        $this->antifraud_finger_print_merchant_id = $this->get_option('antifraud_finger_print_merchant_id');
-        $this->antifraud_finger_print_session_id = $this->get_option('antifraud_finger_print_session_id');
-
-        if (WC()->cart) {
-            $this->antifraud_finger_print_id = WC()->cart->get_cart_hash();
-        }
-
-        $this->antifraud_finger_print_session_id = $this->antifraud_finger_print_merchant_id . $this->antifraud_finger_print_id;
+        $this->init_antifraud_settings();
 
         // Hooks.
         add_action('wp_enqueue_scripts', array($this, 'payment_scripts'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_settings_scripts'));
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 
         add_filter('woocommerce_order_button_html', array($this, 'wc_gateway_braspag_order_button_html'));
@@ -107,6 +102,58 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
     public function html_settings_page()
     {
         //include dirname(__FILE__) . '/views/html-settings-page.php';
+    }
+
+    public function enqueue_admin_settings_scripts($hook)
+    {
+        if ('woocommerce_page_wc-settings' !== $hook || !$this->is_braspag_settings_screen()) {
+            return;
+        }
+
+        wp_register_script('wc-braspag-admin-settings-toggle', false, array('jquery'), WC_BRASPAG_VERSION, true);
+        wp_enqueue_script('wc-braspag-admin-settings-toggle');
+
+        $inline_script = <<<JS
+jQuery(function($) {
+    function toggleClearSaleAppKey() {
+        var provider = $('#woocommerce_braspag_antifraud_provider').val();
+        var appKeyRow = $('#woocommerce_braspag_antifraud_clearsale_app_key').closest('tr');
+
+        if (!appKeyRow.length) {
+            return;
+        }
+
+        if (provider === 'clearsale') {
+            appKeyRow.show();
+            return;
+        }
+
+        appKeyRow.hide();
+    }
+
+    $(document.body).on('change', '#woocommerce_braspag_antifraud_provider', toggleClearSaleAppKey);
+    toggleClearSaleAppKey();
+});
+JS;
+
+        wp_add_inline_script('wc-braspag-admin-settings-toggle', $inline_script);
+    }
+
+    private function is_braspag_settings_screen()
+    {
+        $page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+        $tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : '';
+        $section = isset($_GET['section']) ? sanitize_text_field(wp_unslash($_GET['section'])) : '';
+
+        if ('wc-settings' !== $page) {
+            return false;
+        }
+
+        if (!in_array($tab, array('checkout', 'payment_gateways'), true)) {
+            return false;
+        }
+
+        return $this->id === $section;
     }
 
     /**
@@ -163,7 +210,7 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
                     <input type="hidden" class="bpmpi_currency" value="BRL"/>
                     <input type="hidden" class="bpmpi_ordernumber" value="' . (WC()->cart->get_cart_hash()) . '"/>
                     <input type="hidden" class="bpmpi_transaction_mode" value=""/>
-                    <input type="hidden" class="bpmpi_merchant_url" value="' . gethostname() . '"/>
+                    <input type="hidden" class="bpmpi_merchant_url" value="' . wp_parse_url(home_url(), PHP_URL_HOST) . '"/>
                 </div>
             
                 <div id="bpmpi_data_billto">

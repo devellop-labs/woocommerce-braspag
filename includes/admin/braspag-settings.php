@@ -238,6 +238,17 @@ return apply_filters(
             'default' => 'no',
             'desc_tip' => true,
         ),
+        'antifraud_provider' => array(
+            'title' => __('Antifraud Provider', 'woocommerce-braspag'),
+            'type' => 'select',
+            'description' => __('Choose which antifraud provider will be used in credit card transactions.', 'woocommerce-braspag'),
+            'default' => 'cybersource',
+            'options' => array(
+                'cybersource' => __('Cybersource', 'woocommerce-braspag'),
+                'clearsale' => __('ClearSale', 'woocommerce-braspag'),
+            ),
+            'desc_tip' => true,
+        ),
         'antifraud_finger_print_org_id' => array(
             'title' => __('Finger Print Org ID', 'woocommerce-braspag'),
             'type' => 'text',
@@ -258,6 +269,13 @@ return apply_filters(
             'type' => 'checkbox',
             'description' => __('Choose whether you wish to use Order ID to compose Finger Print ID or not', 'woocommerce-braspag'),
             'default' => 'no',
+            'desc_tip' => true,
+        ),
+        'antifraud_clearsale_app_key' => array(
+            'title' => __('ClearSale AppKey', 'woocommerce-braspag'),
+            'type' => 'text',
+            'description' => __('Get your ClearSale AppKey from Braspag Support.', 'woocommerce-braspag'),
+            'default' => '',
             'desc_tip' => true,
         ),
         'antifraud_options_sequence' => array(
@@ -300,21 +318,21 @@ return apply_filters(
             'desc_tip' => true,
         ),
         'auth3ds20' => array(
-            'title' => "<hr>" . __('Authentication 3DS 2.0', 'woocommerce-braspag'),
+            'title' => "<hr>" . __('Authentication 3DS 2.2', 'woocommerce-braspag'),
             'type' => 'title',
             'description' => '',
         ),
         'auth3ds20_oauth_authentication_client_id' => array(
             'title' => __('Client ID', 'woocommerce-braspag'),
             'type' => 'text',
-            'description' => __('Get your Authentication 3DS 2.0 OAuth Client ID from Braspag Support.', 'woocommerce-braspag'),
+            'description' => __('Get your Authentication 3DS 2.2 OAuth Client ID from Braspag Support.', 'woocommerce-braspag'),
             'default' => '',
             'desc_tip' => true,
         ),
         'auth3ds20_oauth_authentication_client_secret' => array(
             'title' => __('Client Secret', 'woocommerce-braspag'),
             'type' => 'text',
-            'description' => __('Get your Authentication 3DS 2.0 Client Secret from Braspag Support.', 'woocommerce-braspag'),
+            'description' => __('Get your Authentication 3DS 2.2 Client Secret from Braspag Support.', 'woocommerce-braspag'),
             'default' => '',
             'desc_tip' => true,
         )
