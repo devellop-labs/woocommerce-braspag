@@ -346,10 +346,15 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
             $this->payment_scripts_verifycard();
         }
 
-        wp_register_script('wc-braspag-antifraud-fingerprint', "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}", array(), '', false);
-        wp_enqueue_script('wc-braspag-antifraud-fingerprint');
+        $this->enqueue_antifraud_fingerprint_script();
 
         $this->payment_scripts_auth3ds20();
+    }
+
+    public function enqueue_antifraud_fingerprint_script()
+    {
+        wp_register_script('wc-braspag-antifraud-fingerprint', "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}", array(), '', false);
+        wp_enqueue_script('wc-braspag-antifraud-fingerprint');
     }
 
     private function is_checkout_blocks()

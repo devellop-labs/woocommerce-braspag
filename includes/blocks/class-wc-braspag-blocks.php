@@ -25,8 +25,8 @@ add_action('woocommerce_blocks_loaded', function () {
             $payment_method_registry->register(new WC_Braspag_Blocks_Main());
             $payment_method_registry->register(new WC_Braspag_Blocks_Pix());
             $payment_method_registry->register(new WC_Braspag_Blocks_Boleto());
-            // $payment_method_registry->register(new WC_Braspag_Blocks_CreditCard());
-            // $payment_method_registry->register(new WC_Braspag_Blocks_DebitCard());
+            $payment_method_registry->register(new WC_Braspag_Blocks_CreditCard());
+            $payment_method_registry->register(new WC_Braspag_Blocks_DebitCard());
         }
     );
 });
