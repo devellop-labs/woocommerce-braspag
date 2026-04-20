@@ -822,10 +822,11 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
      */
     public function braspag_pagador_creditcard_payment_request_antifraud_builder($payment_data, $order, $checkout, $cart)
     {
+        // Antifraud is allowed to run alongside 3DS; only skip when antifraud is
+        // disabled, not configured to send with the Pagador transaction, or SOP is active.
         if (
             'yes' !== $this->antifraud_enabled
             || 'yes' !== $this->antifraud_send_with_pagador_transaction
-            // || 'yes' === $this->auth3ds20_mpi_is_active
             || 'yes' === $this->sop_enabled
         ) {
             return $payment_data;
