@@ -176,10 +176,10 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
             wc_add_notice($e->getLocalizedMessage(), 'error');
             WC_Braspag_Logger::log('Error: ' . $e->getMessage());
 
-            if (is_object($order) && method_exists($order, 'get_transaction_id')) {
+            if (true === is_object($order) && true === method_exists($order, 'get_transaction_id')) {
                 do_action('wc_gateway_braspag_pagador_process_payment_error', $e, $order);
 
-                if ($order->get_transaction_id()) {
+                if ('' !== (string) $order->get_transaction_id()) {
                     $order->update_status('failed');
                 } else {
                     $order->add_order_note($e->getLocalizedMessage());
@@ -388,10 +388,10 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
         $_braspag_pix_expiration_date = $order->get_meta('_braspag_pix_expiration_date');
         $_braspag_pix_received_date = $order->get_meta('_braspag_pix_received_date');
         $explodeExpirationDate = explode("-", (string) $_braspag_pix_expiration_date);
-        $expirationSeconds = isset($explodeExpirationDate[0]) ? absint($explodeExpirationDate[0]) : 0;
+        $expirationSeconds = true === isset($explodeExpirationDate[0]) ? absint($explodeExpirationDate[0]) : 0;
         $startTime = strtotime((string) $_braspag_pix_received_date);
-        $endTime = $startTime && $expirationSeconds ? strtotime("+{$expirationSeconds} seconds", $startTime) : false;
-        $expirationDate = $endTime ? date_i18n('H:i', $endTime) : '';
+        $endTime = (false !== $startTime && $expirationSeconds > 0) ? strtotime("+{$expirationSeconds} seconds", $startTime) : false;
+        $expirationDate = false !== $endTime ? date_i18n('H:i', $endTime) : '';
         $imageQrcode = preg_replace('/[^A-Za-z0-9+\/=]/', '', (string) $order->get_meta('_braspag_pix_qr_code_image'));
         $digitableLine = (string) $order->get_meta('_braspag_pix_digitable_line');
         $copyButtonId = 'braspag-pix-copy-' . $order->get_id();

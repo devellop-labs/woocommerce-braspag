@@ -31,12 +31,18 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
             return;
         }
 
-        $raw_body = file_get_contents('php://input');
-        $request_body = json_decode($raw_body, true);
+        $raw_body     = '';
+        $request_body = null;
         $request_headers = array_change_key_case($this->get_request_headers(), CASE_UPPER);
 
         try {
-            if (!$this->is_valid_request($request_headers, $request_body, $raw_body)) {
+            $raw_body = file_get_contents('php://input');
+            if (false === $raw_body) {
+                throw new WC_Braspag_Exception('Unable to read incoming webhook body');
+            }
+            $request_body = json_decode($raw_body, true);
+
+            if (false === $this->is_valid_request($request_headers, $request_body, $raw_body)) {
                 throw new WC_Braspag_Exception('Incoming webhook validation Error');
             }
 
@@ -65,21 +71,30 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
             return false;
         }
 
-        if (JSON_ERROR_NONE !== json_last_error() || !is_array($request_body)) {
+        if (JSON_ERROR_NONE !== json_last_error() || false === is_array($request_body)) {
             return false;
         }
 
-        if (empty($request_body['PaymentId']) || empty($request_body['ChangeType'])) {
+        if (false === isset($request_body['PaymentId']) || false === isset($request_body['ChangeType'])) {
             return false;
         }
 
+        if (false === is_scalar($request_body['PaymentId']) || false === is_scalar($request_body['ChangeType'])) {
+            return false;
+        }
+
+        $payment_id  = (string) $request_body['PaymentId'];
         $change_type = (string) $request_body['ChangeType'];
 
-        if (!in_array($change_type, array('1', '2', '3', '4', '5', '6', '7', '8'), true)) {
+        if ('' === $payment_id || '' === $change_type) {
             return false;
         }
 
-        if (!$this->is_valid_signature($request_headers, $raw_body)) {
+        if (false === in_array($change_type, array('1', '2', '3', '4', '5', '6', '7', '8'), true)) {
+            return false;
+        }
+
+        if (false === $this->is_valid_signature($request_headers, $raw_body)) {
             return false;
         }
 
@@ -108,13 +123,13 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
 
         $expected = hash_hmac('sha256', $raw_body, $secret);
 
-        if (hash_equals($expected, $signature)) {
+        if (true === hash_equals($expected, $signature)) {
             return true;
         }
 
         $expected_base64 = base64_encode(hex2bin($expected));
 
-        return hash_equals($expected_base64, $signature);
+        return true === hash_equals($expected_base64, $signature);
     }
 
     /**
@@ -132,7 +147,7 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
      */
     public function get_request_headers()
     {
-        if (!function_exists('getallheaders')) {
+        if (false === function_exists('getallheaders')) {
             $headers = array();
 
             foreach ($_SERVER as $name => $value) {
@@ -159,7 +174,7 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
 
         switch ($changeType) {
             case '1':
-            $this->process_change_type_status_update($payment_id);
+                $this->process_change_type_status_update($payment_id);
                 break;
 
             case '2':
@@ -186,7 +201,7 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
     {
         $order = WC_Braspag_Helper::get_order_by_charge_id($paymentId);
 
-        if (!$order) {
+        if (false === (bool) $order) {
             throw new WC_Braspag_Exception('Process Webhook Change Type Status Update Error: Order not found');
         }
 

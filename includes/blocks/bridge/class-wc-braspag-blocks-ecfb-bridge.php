@@ -375,18 +375,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			return \Extra_Checkout_Fields_For_Brazil_Formatting::is_cpf($cpf);
 		}
 
-		// Fallback básico (mesma lógica clássica)
-		if (strlen($cpf) !== 11 || preg_match('/^(\\d)\\1{10}$/', $cpf))
-			return false;
-		for ($t = 9; $t < 11; $t++) {
-			for ($d = 0, $c = 0; $c < $t; $c++) {
-				$d += (int) $cpf[$c] * (($t + 1) - $c);
-			}
-			$d = ((10 * $d) % 11) % 10;
-			if ((int) $cpf[$c] !== $d)
-				return false;
-		}
-		return true;
+		return WC_Braspag_Helper::is_valid_cpf($cpf);
 	}
 
 	public static function is_valid_cnpj(string $cnpj): bool
@@ -397,36 +386,7 @@ class WC_Braspag_Blocks_ECFB_Bridge
 			return \Extra_Checkout_Fields_For_Brazil_Formatting::is_cnpj($cnpj);
 		}
 
-		// Fallback básico
-		if (strlen($cnpj) !== 14 || preg_match('/^(\\d)\\1{13}$/', $cnpj))
-			return false;
-
-		$length = 12;
-		$numbers = substr($cnpj, 0, $length);
-		$digits = substr($cnpj, $length);
-
-		$sum = 0;
-		$pos = $length - 7;
-		for ($i = $length; $i >= 1; $i--) {
-			$sum += (int) $numbers[$length - $i] * $pos--;
-			if ($pos < 2)
-				$pos = 9;
-		}
-		$result = $sum % 11 < 2 ? 0 : 11 - ($sum % 11);
-		if ((int) $digits[0] !== $result)
-			return false;
-
-		$length = 13;
-		$numbers = substr($cnpj, 0, $length);
-		$sum = 0;
-		$pos = $length - 7;
-		for ($i = $length; $i >= 1; $i--) {
-			$sum += (int) $numbers[$length - $i] * $pos--;
-			if ($pos < 2)
-				$pos = 9;
-		}
-		$result = $sum % 11 < 2 ? 0 : 11 - ($sum % 11);
-		return (int) $digits[1] === $result;
+		return WC_Braspag_Helper::is_valid_cnpj($cnpj);
 	}
 
 	public static function register_blocks_fields()

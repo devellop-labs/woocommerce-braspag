@@ -118,7 +118,7 @@ class WC_Braspag_Helper
 			return false;
 		}
 
-		if (function_exists('wc_get_orders')) {
+		if (true === function_exists('wc_get_orders')) {
 			$orders = wc_get_orders(array(
 				'limit' => 1,
 				'type' => 'shop_order',
@@ -126,7 +126,7 @@ class WC_Braspag_Helper
 				'meta_value' => $charge_id,
 			));
 
-			if (!empty($orders) && is_object($orders[0]) && method_exists($orders[0], 'get_id')) {
+			if (false === empty($orders) && true === is_object($orders[0]) && true === method_exists($orders[0], 'get_id')) {
 				return $orders[0];
 			}
 
@@ -136,7 +136,7 @@ class WC_Braspag_Helper
 				'transaction_id' => $charge_id,
 			));
 
-			if (!empty($orders) && is_object($orders[0]) && method_exists($orders[0], 'get_id')) {
+			if (false === empty($orders) && true === is_object($orders[0]) && true === method_exists($orders[0], 'get_id')) {
 				return $orders[0];
 			}
 		}
@@ -149,7 +149,7 @@ class WC_Braspag_Helper
 			)
 		);
 
-		if (!empty($order_id)) {
+		if (false === empty($order_id)) {
 			return wc_get_order($order_id);
 		}
 
@@ -161,7 +161,7 @@ class WC_Braspag_Helper
 			)
 		);
 
-		if (!empty($order_id)) {
+		if (false === empty($order_id)) {
 			return wc_get_order($order_id);
 		}
 
