@@ -121,6 +121,8 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
      */
     public function process_payment($order_id, $retry = true, $previous_error = false, $use_order_source = false)
     {
+        $order = null;
+
         try {
             do_action('wc_gateway_braspag_pagador_pix_process_payment_before', $order_id, $retry, $previous_error, $use_order_source);
 
@@ -174,10 +176,15 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
             wc_add_notice($e->getLocalizedMessage(), 'error');
             WC_Braspag_Logger::log('Error: ' . $e->getMessage());
 
-            do_action('wc_gateway_braspag_pagador_process_payment_error', $e, $order);
+            if (is_object($order) && method_exists($order, 'get_transaction_id')) {
+                do_action('wc_gateway_braspag_pagador_process_payment_error', $e, $order);
 
-            /* translators: error message */
-            $order->update_status('failed');
+                if ($order->get_transaction_id()) {
+                    $order->update_status('failed');
+                } else {
+                    $order->add_order_note($e->getLocalizedMessage());
+                }
+            }
 
             return array(
                 'result' => 'fail',
@@ -380,10 +387,15 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
 
         $_braspag_pix_expiration_date = $order->get_meta('_braspag_pix_expiration_date');
         $_braspag_pix_received_date = $order->get_meta('_braspag_pix_received_date');
-        $explodeExpirationDate = explode("-", $_braspag_pix_expiration_date);
-        $startTime = strtotime($_braspag_pix_received_date);
-        $endTime = strtotime("+{$explodeExpirationDate[0]} seconds", $startTime);
-        $expirationDate = date('H:i', $endTime);
+        $explodeExpirationDate = explode("-", (string) $_braspag_pix_expiration_date);
+        $expirationSeconds = isset($explodeExpirationDate[0]) ? absint($explodeExpirationDate[0]) : 0;
+        $startTime = strtotime((string) $_braspag_pix_received_date);
+        $endTime = $startTime && $expirationSeconds ? strtotime("+{$expirationSeconds} seconds", $startTime) : false;
+        $expirationDate = $endTime ? date_i18n('H:i', $endTime) : '';
+        $imageQrcode = preg_replace('/[^A-Za-z0-9+\/=]/', '', (string) $order->get_meta('_braspag_pix_qr_code_image'));
+        $digitableLine = (string) $order->get_meta('_braspag_pix_digitable_line');
+        $copyButtonId = 'braspag-pix-copy-' . $order->get_id();
+        $digitableFieldId = 'braspag-pix-line-' . $order->get_id();
 
         do_action('wc_gateway_braspag_pagador_pix_display_order_data_before', $order);
         $swf_url = esc_url(plugins_url('assets/images/pix.webp', dirname(dirname(__FILE__))));
@@ -399,7 +411,7 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
                                                     <td class="woocommerce-table__product-total product-total text-center validade-pix" colspan="2">
                                                         <p class="stopwatch">
                                                             <img class="image-time" src="<?php echo $timer_url; ?>" alt="timer">
-                                                             Validade do código Pix até às: <strong><?php echo $expirationDate; ?></strong>
+                                                             Validade do código Pix até às: <strong><?php echo esc_html($expirationDate); ?></strong>
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -410,16 +422,17 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
                                                             Para pagar no banco on-line ou aplicativo do seu banco,
                                                             <strong>Escanei o QR Code ou copie o código Pix:</strong>
                                                         </p>
-                                                        <?php $imageQrcode = $order->get_meta('_braspag_pix_qr_code_image'); ?>
-                                                        <img alt="QR-Code PIX" src="data:image/png;base64,<?php echo $imageQrcode; ?>" />
+                                                        <?php if ($imageQrcode) : ?>
+                                                        <img alt="QR-Code PIX" src="data:image/png;base64,<?php echo esc_attr($imageQrcode); ?>" />
+                                                        <?php endif; ?>
                                                     </td>
                                                 </tr>
 
                                                 <tr class="woocommerce-table__line-item order_item">
                                                     <td class="woocommerce-table__product-total product-total text-center">
-                                                        <textarea disabled id="linha-digitavel"><?php echo $order->get_meta('_braspag_pix_digitable_line'); ?></textarea>
+                                                        <textarea disabled id="<?php echo esc_attr($digitableFieldId); ?>"><?php echo esc_textarea($digitableLine); ?></textarea>
                                                         <br>
-                                                        <button onclick="copiarTexto()"><b>Copiar código Pix</b></button>
+                                                        <button type="button" id="<?php echo esc_attr($copyButtonId); ?>"><b>Copiar código Pix</b></button>
                                                     </td>
                                                 </tr>
 
@@ -440,16 +453,22 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
                                             </tbody>
                                         </table>
                                         <script>
-                                            function copiarTexto() {
-                                                let textoCopiado = document.getElementById("linha-digitavel");
+                                            (function() {
+                                                var copyButton = document.getElementById(<?php echo wp_json_encode($copyButtonId); ?>);
+                                                var digitableField = document.getElementById(<?php echo wp_json_encode($digitableFieldId); ?>);
 
-                                                textoCopiado.select();
-                                                textoCopiado.setSelectionRange(0, 99999);
+                                                if (!copyButton || !digitableField || !navigator.clipboard) {
+                                                    return;
+                                                }
 
-                                                navigator.clipboard.writeText(textoCopiado.value);
-
-                                                console.log("O texto é: " + textoCopiado.value);
-                                            }
+                                                copyButton.addEventListener('click', function() {
+                                                    digitableField.removeAttribute('disabled');
+                                                    digitableField.select();
+                                                    digitableField.setSelectionRange(0, 99999);
+                                                    navigator.clipboard.writeText(digitableField.value);
+                                                    digitableField.setAttribute('disabled', 'disabled');
+                                                });
+                                            }());
                                         </script>
                                         <?php
 

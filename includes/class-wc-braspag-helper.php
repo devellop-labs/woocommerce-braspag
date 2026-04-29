@@ -118,7 +118,48 @@ class WC_Braspag_Helper
 			return false;
 		}
 
-		$order_id = $wpdb->get_var($wpdb->prepare("SELECT DISTINCT ID FROM $wpdb->posts as posts LEFT JOIN $wpdb->postmeta as meta ON posts.ID = meta.post_id WHERE meta.meta_value = %s AND meta.meta_key = %s", $charge_id, '_transaction_id'));
+		if (function_exists('wc_get_orders')) {
+			$orders = wc_get_orders(array(
+				'limit' => 1,
+				'type' => 'shop_order',
+				'meta_key' => '_braspag_pix_payment_id',
+				'meta_value' => $charge_id,
+			));
+
+			if (!empty($orders) && is_object($orders[0]) && method_exists($orders[0], 'get_id')) {
+				return $orders[0];
+			}
+
+			$orders = wc_get_orders(array(
+				'limit' => 1,
+				'type' => 'shop_order',
+				'transaction_id' => $charge_id,
+			));
+
+			if (!empty($orders) && is_object($orders[0]) && method_exists($orders[0], 'get_id')) {
+				return $orders[0];
+			}
+		}
+
+		$order_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT DISTINCT ID FROM $wpdb->posts as posts LEFT JOIN $wpdb->postmeta as meta ON posts.ID = meta.post_id WHERE meta.meta_value = %s AND meta.meta_key = %s LIMIT 1",
+				$charge_id,
+				'_braspag_pix_payment_id'
+			)
+		);
+
+		if (!empty($order_id)) {
+			return wc_get_order($order_id);
+		}
+
+		$order_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+				'_transaction_id',
+				$charge_id
+			)
+		);
 
 		if (!empty($order_id)) {
 			return wc_get_order($order_id);

@@ -6,6 +6,7 @@
     const { createElement: el, Fragment } = wp.element;
 
     const settings = getSetting('braspag_pix_data', {});
+    const methodTitle = settings.title ? 'Braspag - ' + settings.title : __('Braspag - Pix', 'woocommerce-braspag');
 
     const Content = () =>
         el(
@@ -27,15 +28,15 @@
                         color: '#1e40af'
                     }
                 },
-                el('strong', null, '📄 Documento obrigatório: '),
+                el('strong', null, __('Documento obrigatório: ', 'woocommerce-braspag')),
                 'Certifique-se de preencher seu CPF ou CNPJ nos dados de cobrança para utilizar o PIX.'
             )
         );
 
     registerPaymentMethod({
         name: 'braspag_pix',
-        label: 'Braspag - ' + settings.title || __('Braspag - Pix', 'woocommerce-braspag'),
-        ariaLabel: 'Braspag - ' + settings.title || __('Braspag - Pix', 'woocommerce-braspag'),
+        label: methodTitle,
+        ariaLabel: methodTitle,
         canMakePayment: () => true,
         content: el(Content, null),
         edit: el(Content, null),
