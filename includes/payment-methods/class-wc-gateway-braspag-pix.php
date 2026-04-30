@@ -403,15 +403,15 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
         ?>
                                         <div class="header">
                                             <h4>SEU CÓDIGO PIX FOI GERADO</h4>
-                                            <img class="image-pix" src="<?php echo $swf_url; ?>" alt="pix">
+                                            <img class="image-pix" src="<?php echo esc_url( $swf_url ); ?>" alt="pix">
                                         </div>
                                         <table class="woocommerce-table woocommerce-table--order-details shop_table order_details">
                                             <tbody>
                                                 <tr class="woocommerce-table__line-item order_item">
                                                     <td class="woocommerce-table__product-total product-total text-center validade-pix" colspan="2">
                                                         <p class="stopwatch">
-                                                            <img class="image-time" src="<?php echo $timer_url; ?>" alt="timer">
-                                                             Validade do código Pix até às: <strong><?php echo esc_html($expirationDate); ?></strong>
+                                                            <img class="image-time" src="<?php echo esc_url( $timer_url ); ?>" alt="timer">
+                                                             Validade do código Pix até às: <strong><?php echo esc_html( $expirationDate ); ?></strong>
                                                         </p>
                                                     </td>
                                                 </tr>
