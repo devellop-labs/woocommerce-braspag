@@ -7,6 +7,27 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
 {
     protected $name = 'braspag_debitcard';
     protected $main_settings = [];
+    private $mpi_token = '';
+
+    private function fetch_mpi_token(): string
+    {
+        if ($this->mpi_token !== '') {
+            return $this->mpi_token;
+        }
+        if ($this->get_setting('auth3ds20_mpi_is_active', 'no') !== 'yes') {
+            return '';
+        }
+        if (!class_exists('WC_Gateway_Braspag_DebitCard')) {
+            return '';
+        }
+        try {
+            $gateway = new WC_Gateway_Braspag_DebitCard();
+            $this->mpi_token = (string) $gateway->get_mpi_auth_token();
+        } catch (Exception $e) {
+            $this->mpi_token = '';
+        }
+        return $this->mpi_token;
+    }
 
     public function initialize()
     {
@@ -33,7 +54,14 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
 
         if (class_exists('WC_Gateway_Braspag_DebitCard')) {
             $gateway = new WC_Gateway_Braspag_DebitCard();
-            $gateway->payment_scripts_auth3ds20();
+            if ($this->is_blocks_checkout_active()) {
+                $token = $gateway->payment_scripts_auth3ds20_blocks();
+                if ($token !== '') {
+                    $this->mpi_token = $token;
+                }
+            } else {
+                $gateway->payment_scripts_auth3ds20();
+            }
         }
     }
 
@@ -67,6 +95,7 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
             'supports'          => ['features' => ['products']],
             'available_types'   => true === isset($this->settings['available_types']) && true === is_array($this->settings['available_types']) ? array_values($this->settings['available_types']) : [],
             'auth3ds20_enabled' => $this->get_setting('auth3ds20_mpi_is_active', 'no') === 'yes',
+            'bpmpiToken'        => $this->fetch_mpi_token(),
             'test_mode'         => isset($this->main_settings['test_mode']) && $this->main_settings['test_mode'] === 'yes',
         ];
     }

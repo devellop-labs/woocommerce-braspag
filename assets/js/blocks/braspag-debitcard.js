@@ -121,6 +121,7 @@
 
         bpmpi.paymentType = 'debitcard';
         bpmpi.transactionStarted = false;
+        bpmpi.accessToken = settings.bpmpiToken || '';
 
         await bpmpi.startTransaction();
         await bpmpi.renderData();
@@ -138,7 +139,7 @@
             el('div', { id: 'bpmpi_data', style: { display: 'none' } },
                 el('div', { id: 'bpmpi_data_auth' },
                     el('input', { type: 'hidden', name: 'test_environment', className: 'test_environment', defaultValue: settings.test_mode ? '1' : '0' }),
-                    el('input', { type: 'hidden', name: 'bpmpi_accesstoken', className: 'bpmpi_accesstoken', defaultValue: '' }),
+                    el('input', { type: 'hidden', name: 'bpmpi_accesstoken', className: 'bpmpi_accesstoken', defaultValue: (typeof braspag_auth3ds20_params !== 'undefined' ? (braspag_auth3ds20_params.bpmpiToken || '') : '') }),
                     el('input', { type: 'hidden', name: 'bpmpi_auth', className: 'bpmpi_auth', defaultValue: 'true' }),
                     el('input', { type: 'hidden', name: 'bpmpi_auth_notifyonly', className: 'bpmpi_auth_notifyonly', defaultValue: '' }),
                     el('input', { type: 'hidden', name: 'bpmpi_auth_suppresschallenge', className: 'bpmpi_auth_suppresschallenge', defaultValue: 'false' }),
@@ -237,6 +238,12 @@
 
             return '';
         }
+
+        useEffect(() => {
+            if (settings.auth3ds20_enabled && typeof bpmpi !== 'undefined') {
+                bpmpi.preload(settings.bpmpiToken || '');
+            }
+        }, []);
 
         useEffect(() => {
             if (!props?.eventRegistration || !props?.emitResponse) {

@@ -7,6 +7,27 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
 {
     protected $name = 'braspag_creditcard';
     protected $main_settings = [];
+    private $mpi_token = '';
+
+    private function fetch_mpi_token(): string
+    {
+        if ($this->mpi_token !== '') {
+            return $this->mpi_token;
+        }
+        if ($this->get_setting('auth3ds20_mpi_is_active', 'no') !== 'yes') {
+            return '';
+        }
+        if (!class_exists('WC_Gateway_Braspag_CreditCard')) {
+            return '';
+        }
+        try {
+            $gateway = new WC_Gateway_Braspag_CreditCard();
+            $this->mpi_token = (string) $gateway->get_mpi_auth_token();
+        } catch (Exception $e) {
+            $this->mpi_token = '';
+        }
+        return $this->mpi_token;
+    }
 
     public function initialize()
     {
@@ -53,7 +74,15 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
         }
 
         $gateway->enqueue_antifraud_fingerprint_script();
-        $gateway->payment_scripts_auth3ds20();
+
+        if ($this->is_blocks_checkout_active()) {
+            $token = $gateway->payment_scripts_auth3ds20_blocks();
+            if ($token !== '') {
+                $this->mpi_token = $token;
+            }
+        } else {
+            $gateway->payment_scripts_auth3ds20();
+        }
     }
 
     public function is_active()
@@ -67,10 +96,14 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
 
         // Apenas o script de Blocks com dependências limpas — idêntico ao padrão
         // do Pix/Boleto. Scripts pesados ficam em enqueue_checkout_only_scripts().
+        $deps = ['wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-i18n'];
+        if (wp_script_is('wc-braspag-auth3ds20-blocks', 'registered')) {
+            $deps[] = 'wc-braspag-auth3ds20-blocks';
+        }
         wp_register_script(
             $handle,
             plugins_url('assets/js/blocks/braspag-creditcard.js', WC_BRASPAG_MAIN_FILE),
-            ['wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-i18n'],
+            $deps,
             WC_BRASPAG_VERSION,
             true
         );
@@ -90,6 +123,7 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
             'sop_enabled'       => isset($this->main_settings['silentpost_enabled']) && $this->main_settings['silentpost_enabled'] === 'yes',
             'sop_tokenize'      => isset($this->main_settings['silentpost_token_type']) && $this->main_settings['silentpost_token_type'] === 'yes',
             'auth3ds20_enabled' => $this->get_setting('auth3ds20_mpi_is_active', 'no') === 'yes',
+            'bpmpiToken'        => $this->fetch_mpi_token(),
             'verify_enabled'    => $this->get_setting('verifycard_enabled', 'no') === 'yes',
             'antifraud_enabled' => isset($this->main_settings['antifraud_enabled']) && $this->main_settings['antifraud_enabled'] === 'yes',
             'test_mode'         => isset($this->main_settings['test_mode']) && $this->main_settings['test_mode'] === 'yes',

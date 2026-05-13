@@ -23,4 +23,21 @@ abstract class WC_Braspag_Blocks_Abstract extends AbstractPaymentMethodType
     {
         return $this->get_setting('enabled', 'no') === 'yes';
     }
+
+    protected function is_blocks_checkout_active(): bool
+    {
+        if (class_exists('\Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils')) {
+            return \Automattic\WooCommerce\Blocks\Utils\CartCheckoutUtils::is_checkout_block_default();
+        }
+
+        $checkout_page_id = wc_get_page_id('checkout');
+        if ($checkout_page_id > 0) {
+            $post = get_post($checkout_page_id);
+            if ($post && has_block('woocommerce/checkout', $post)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

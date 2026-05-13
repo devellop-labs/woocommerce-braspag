@@ -688,6 +688,49 @@ JS;
         }
     }
 
+    public function payment_scripts_auth3ds20_blocks(): string
+    {
+        $auth3ds_params = apply_filters(
+            'wc_gateway_braspag_pagador_auth3ds20_params',
+            array('isTestEnvironment' => $this->test_mode)
+        );
+
+        if (empty($auth3ds_params['isBpmpiEnabledCC']) && empty($auth3ds_params['isBpmpiEnabledDC'])) {
+            return '';
+        }
+
+        wp_register_script('wc-braspag-auth3ds20-conf', plugins_url('assets/js/vendor/auth3ds20/BP.Mpi.3ds20.conf.js', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION, false);
+        wp_enqueue_script('wc-braspag-auth3ds20-conf');
+        wp_localize_script('wc-braspag-auth3ds20-conf', 'braspag_auth3ds20_params', $auth3ds_params);
+
+        wp_register_script('wc-braspag-auth3ds20-lib', plugins_url('assets/js/vendor/auth3ds20/BP.Mpi.3ds20.lib.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf'), WC_BRASPAG_VERSION, false);
+        wp_enqueue_script('wc-braspag-auth3ds20-lib');
+
+        wp_register_script('wc-braspag-auth3ds20-blocks', plugins_url('assets/js/braspag-auth3ds20-blocks.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf', 'wc-braspag-auth3ds20-lib', 'wp-data'), WC_BRASPAG_VERSION, true);
+        wp_enqueue_script('wc-braspag-auth3ds20-blocks');
+
+        try {
+            $bpmpi_token = $this->get_mpi_auth_token();
+        } catch (WC_Braspag_Exception $e) {
+            WC_Braspag_Logger::log('ERROR: MPI auth token failed (blocks): ' . $e->getMessage());
+            return '';
+        }
+
+        wp_localize_script(
+            'wc-braspag-auth3ds20-blocks',
+            'braspag_auth3ds20_params',
+            apply_filters(
+                'wc_gateway_braspag_pagador_auth3ds20_params',
+                array(
+                    'bpmpiToken'        => $bpmpi_token,
+                    'isTestEnvironment' => $this->test_mode,
+                )
+            )
+        );
+
+        return (string) $bpmpi_token;
+    }
+
     /**
      * @return bool|void
      */
