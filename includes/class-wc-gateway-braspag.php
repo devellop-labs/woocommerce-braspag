@@ -667,13 +667,20 @@ JS;
             wp_register_script('wc-braspag-auth3ds20', plugins_url('assets/js/braspag-auth3ds20.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf', 'wc-braspag-auth3ds20-lib', 'wc-braspag-auth3ds20-renderer', 'wc-braspag'), WC_BRASPAG_VERSION, true);
             wp_enqueue_script('wc-braspag-auth3ds20');
 
+            try {
+                $bpmpi_token = $this->get_mpi_auth_token();
+            } catch (WC_Braspag_Exception $e) {
+                WC_Braspag_Logger::log('ERROR: MPI auth token failed, 3DS 2.0 scripts not loaded: ' . $e->getMessage());
+                return;
+            }
+
             wp_localize_script(
                 'wc-braspag-auth3ds20',
                 'braspag_auth3ds20_params',
                 apply_filters(
                     'wc_gateway_braspag_pagador_auth3ds20_params',
                     array(
-                        'bpmpiToken' => $this->get_mpi_auth_token(),
+                        'bpmpiToken' => $bpmpi_token,
                         'isTestEnvironment' => $this->test_mode,
                     )
                 )
