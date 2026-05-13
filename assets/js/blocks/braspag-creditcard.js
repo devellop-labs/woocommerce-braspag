@@ -311,7 +311,6 @@
         const [cardBrand, setCardBrand] = useState(null);
         const [expiry, setExpiry] = useState('');
         const validationMessageRef = useRef('');
-        const subscribedRef = useRef(false);
 
         function handleCardNumber(event) {
             const raw = event.target.value;
@@ -368,20 +367,12 @@
         }
 
         useEffect(() => {
-            if (subscribedRef.current) return;
+            if (!props?.eventRegistration || !props?.emitResponse) {
+                return undefined;
+            }
 
-            const registration = props?.eventRegistration;
-            const emitResponse = props?.emitResponse;
-
-            if (
-                !registration?.onCheckoutValidation ||
-                !registration?.onPaymentSetup ||
-                !emitResponse
-            ) return;
-
-            subscribedRef.current = true;
-
-            const { onCheckoutValidation, onPaymentSetup } = registration;
+            const { onCheckoutValidation, onPaymentSetup } = props.eventRegistration;
+            const emitResponse = props.emitResponse;
 
             const unsubscribeValidation = onCheckoutValidation(async () => {
                 const fieldError = validateFields();
@@ -428,11 +419,10 @@
             });
 
             return () => {
-                subscribedRef.current = false;
                 unsubscribeValidation();
                 unsubscribePayment();
             };
-        });
+        }, []);
 
         return el(
             Fragment,
