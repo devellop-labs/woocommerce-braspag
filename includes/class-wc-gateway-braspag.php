@@ -661,7 +661,7 @@ JS;
             wp_register_script('wc-braspag-auth3ds20-lib', plugins_url('assets/js/vendor/auth3ds20/BP.Mpi.3ds20.lib.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf'), WC_BRASPAG_VERSION, false);
             wp_enqueue_script('wc-braspag-auth3ds20-lib');
 
-            wp_register_script('wc-braspag-auth3ds20-renderer', plugins_url('assets/js/braspag-auth3ds20-renderer.js', WC_BRASPAG_MAIN_FILE), array(), WC_BRASPAG_VERSION, true);
+            wp_register_script('wc-braspag-auth3ds20-renderer', plugins_url('assets/js/braspag-auth3ds20-renderer.js', WC_BRASPAG_MAIN_FILE), array('prototype'), WC_BRASPAG_VERSION, true);
             wp_enqueue_script('wc-braspag-auth3ds20-renderer');
 
             wp_register_script('wc-braspag-auth3ds20', plugins_url('assets/js/braspag-auth3ds20.js', WC_BRASPAG_MAIN_FILE), array('wc-braspag-auth3ds20-conf', 'wc-braspag-auth3ds20-lib', 'wc-braspag-auth3ds20-renderer', 'wc-braspag'), WC_BRASPAG_VERSION, true);
