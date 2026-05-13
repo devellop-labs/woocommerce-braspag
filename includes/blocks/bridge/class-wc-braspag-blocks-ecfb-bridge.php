@@ -719,9 +719,9 @@ class WC_Braspag_Blocks_ECFB_Bridge
 		$number = '';
 
 		// Procurar o campo número com múltiplos fallbacks
-		if (true === isset($fields[self::FIELD_NS . '/number'])) {
+		if (isset($fields[self::FIELD_NS . '/number'])) {
 			$number = self::sanitize_text($fields[self::FIELD_NS . '/number']);
-		} elseif (true === isset($fields['number'])) {
+		} elseif (isset($fields['number'])) {
 			$number = self::sanitize_text($fields['number']);
 		} elseif ($number_submitted) {
 			$number = self::sanitize_text(self::get_request_address_value($group, $number_keys));
