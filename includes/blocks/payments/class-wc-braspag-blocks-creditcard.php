@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
     exit;
 }
 
@@ -21,7 +21,7 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
 
     public function enqueue_checkout_only_scripts()
     {
-        if (!is_checkout() || !$this->is_active()) {
+        if (false === is_checkout() || false === $this->is_active()) {
             return;
         }
 

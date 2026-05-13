@@ -50,7 +50,7 @@ class WC_Gateway_Braspag_CreditCard_JustClick extends WC_Gateway_Braspag_CreditC
 
         $this->soft_descriptor = substr($this->get_option('SoftDescriptor'), 0, 13);
 
-        $this->enabled = $braspag_enabled == 'yes' ? $this->get_option('enabled') : 'no';
+        $this->enabled = $braspag_enabled === 'yes' ? $this->get_option('enabled') : 'no';
         $this->test_mode = $test_mode == 'yes';
         $this->maximum_installments = $this->get_option('maximum_installments');
         $this->minimum_amount_of_installment = $this->get_option('minimum_amount_of_installment');
@@ -101,7 +101,7 @@ class WC_Gateway_Braspag_CreditCard_JustClick extends WC_Gateway_Braspag_CreditC
 
     public function display_order_creditcard_data($order)
     {
-        if ($order->get_payment_method() != 'braspag_creditcard_justclick') {
+        if ($order->get_payment_method() !== 'braspag_creditcard_justclick') {
             return null;
         }
 

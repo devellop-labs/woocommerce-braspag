@@ -458,7 +458,7 @@ JS;
             return;
         }
 
-        $suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
+        $suffix = true === defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 
         if ($this->auth3DS_enabled == 'yes') {
             // Adiciona o jQuery BlockUI a partir da CDN
@@ -472,7 +472,7 @@ JS;
         wp_register_script('wc-braspag', plugins_url('assets/js/braspag.js', WC_BRASPAG_MAIN_FILE), array('prototype', 'jquery-payment', 'jquery-blockui'), WC_BRASPAG_VERSION, true);
         wp_enqueue_script('wc-braspag');
 
-        if ($this->silentorderpost_enabled == 'yes') {
+        if ($this->silentorderpost_enabled === 'yes') {
             if ($this->test_mode == 'yes') {
                 wp_register_script('wc-braspag-silent-order-post', "https://transactionsandbox.pagador.com.br/post/Scripts/silentorderpost-1.0.min.js", array(), '', false);
                 wp_enqueue_script('wc-braspag-silent-order-post');
@@ -484,7 +484,7 @@ JS;
             $this->payment_scripts_authsop();
         }
 
-        if ($this->verifycard_enabled == 'yes') {
+        if ($this->verifycard_enabled === 'yes') {
             $this->payment_scripts_verifycard();
         }
 
@@ -511,7 +511,7 @@ JS;
 
     private function is_checkout_blocks()
     {
-        if (!function_exists('wc_get_page_id') || !function_exists('has_block')) {
+        if (false === function_exists('wc_get_page_id') || false === function_exists('has_block')) {
             return false;
         }
 
@@ -761,11 +761,11 @@ JS;
         }
 
         if ($personType === '1' || (!$personType && $cpf)) {
-            return ['type' => 'CPF', 'value' => $cpf ?: ''];
+            return ['type' => 'CPF', 'value' => ( '' !== $cpf ? $cpf : '' )];
         }
 
         if ($personType === '2' || (!$personType && $cnpj)) {
-            return ['type' => 'CNPJ', 'value' => $cnpj ?: ''];
+            return ['type' => 'CNPJ', 'value' => ( '' !== $cnpj ? $cnpj : '' )];
         }
 
         // Fallbacks (outros plugins/temas costumam usar)
@@ -825,7 +825,7 @@ JS;
                 "ZipCode" => $billing_address['postcode'],
                 "City" => $billing_address['city'],
                 "State" => $billing_address['state'],
-                "Country" => $billing_address['country'] == 'BR' ? 'BRA' : '',
+                "Country" => $billing_address['country'] === 'BR' ? 'BRA' : '',
                 "District" => $billing_address['neighborhood']
             ],
             "DeliveryAddress" => [
@@ -835,7 +835,7 @@ JS;
                 "ZipCode" => $shipping_address['postcode'],
                 "City" => $shipping_address['city'],
                 "State" => $shipping_address['state'],
-                "Country" => $shipping_address['country'] == 'BR' ? 'BRA' : '',
+                "Country" => $shipping_address['country'] === 'BR' ? 'BRA' : '',
                 "District" => $shipping_address['neighborhood']
             ]
         ];
@@ -904,9 +904,9 @@ JS;
         do_action('wc_gateway_braspag_pagador_process_response_before', $response, $order);
 
         $order_id = WC_Braspag_Helper::is_wc_lt('3.0') ? $order->id : $order->get_id();
-        $captured = ((isset($response->body->Payment->Capture) && $response->body->Payment->Capture)) || ($this->antifraud_enabled && in_array($response->body->Payment->Status, ['2'])) ? 'yes' : 'no';
+        $captured = ((true === isset($response->body->Payment->Capture) && $response->body->Payment->Capture)) || (true === $this->antifraud_enabled && in_array($response->body->Payment->Status, ['2'])) ? 'yes' : 'no';
 
-        if ($this->antifraud_enabled && isset($response->body->Payment->FraudAnalysis)) {
+        if (true === $this->antifraud_enabled && true === isset($response->body->Payment->FraudAnalysis)) {
             $this->antifraud_status = $response->body->Payment->FraudAnalysis->Status;
         }
 
@@ -936,7 +936,7 @@ JS;
 
                 $payment_status = 'on-hold';
 
-                if ($this->antifraud_enabled && isset($response->body->Payment->FraudAnalysis)) {
+                if (true === $this->antifraud_enabled && true === isset($response->body->Payment->FraudAnalysis)) {
                     $this->antifraud_status = $response->body->Payment->FraudAnalysis->Status;
 
                     switch ($this->antifraud_status) {

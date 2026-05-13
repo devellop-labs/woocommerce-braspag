@@ -38,7 +38,7 @@ class WC_Gateway_Braspag_Boleto extends WC_Gateway_Braspag
 
         $braspag_main_settings = get_option('woocommerce_braspag_settings');
 
-        $braspag_enabled = isset($braspag_main_settings['enabled']) ? $braspag_main_settings['enabled'] : 'no';
+        $braspag_enabled = true === isset($braspag_main_settings['enabled']) ? $braspag_main_settings['enabled'] : 'no';
         $test_mode = isset($braspag_main_settings['test_mode']) ? $braspag_main_settings['test_mode'] : 'no';
 
         $this->title = $this->get_option('title');
@@ -141,7 +141,7 @@ class WC_Gateway_Braspag_Boleto extends WC_Gateway_Braspag
                 $this->lock_order_payment($order, $response);
             }
 
-            if (!empty($response->errors)) {
+            if (false === empty($response->errors)) {
 
                 if ($this->is_retryable_error($response)) {
                     return $this->retry_after_error($response, $order, $retry, $previous_error, $use_order_source);
@@ -259,7 +259,7 @@ class WC_Gateway_Braspag_Boleto extends WC_Gateway_Braspag
     private function validate_required_document($order)
     {
         $customer_identity_data = $this->get_customer_identity_data($order);
-        $document = isset($customer_identity_data['value']) ? $customer_identity_data['value'] : '';
+        $document = true === isset($customer_identity_data['value']) ? $customer_identity_data['value'] : '';
         $document_type = isset($customer_identity_data['type']) ? $customer_identity_data['type'] : '';
 
         if (empty($document)) {
@@ -278,7 +278,7 @@ class WC_Gateway_Braspag_Boleto extends WC_Gateway_Braspag
         }
 
         // Validar CNPJ usando algoritmo de módulo 11
-        if ($document_type === 'CNPJ' && !$this->is_valid_cnpj($document)) {
+        if ($document_type === 'CNPJ' && false === $this->is_valid_cnpj($document)) {
             throw new WC_Braspag_Exception(
                 __('CNPJ informado é inválido.', 'woocommerce-braspag'),
                 __('CNPJ informado é inválido.', 'woocommerce-braspag')

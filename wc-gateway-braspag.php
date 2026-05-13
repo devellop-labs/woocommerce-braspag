@@ -99,13 +99,13 @@ function wc_braspag_missing_extra_checkout_fields_notice()
 add_action('plugins_loaded', 'wc_braspag_init');
 function wc_braspag_init()
 {
-	if (!class_exists('WooCommerce')) {
+	if (false === class_exists('WooCommerce')) {
 		add_action('admin_notices', 'wc_braspag_missing_wc_notice');
 		return;
 	}
 
 	// Verifica Extra Checkout Fields for Brazil.
-	if (!class_exists('Extra_Checkout_Fields_For_Brazil')) {
+	if (false === class_exists('Extra_Checkout_Fields_For_Brazil')) {
 		add_action('admin_notices', 'wc_braspag_missing_extra_checkout_fields_notice');
 		return;
 	}
@@ -192,7 +192,7 @@ function wc_braspag_init()
 				],
 			];
 
-			$allPlugins = function_exists('get_plugins') ? get_plugins() : [];
+			$allPlugins = true === function_exists('get_plugins') ? get_plugins() : [];
 
 			foreach ($requiredPlugins as $pluginName => $pluginData) {
 				// Verifica se está instalado
@@ -202,14 +202,14 @@ function wc_braspag_init()
 				$isActive = is_plugin_active($pluginData['file']);
 
 				// Define a ação e o link com base no estado do plugin
-				if (!$isInstalled && $currentUserCanInstallPlugins) {
+				if (false === $isInstalled && true === $currentUserCanInstallPlugins) {
 					// Plugin não está instalado
 					$action = 'install';
 					$link = wp_nonce_url(
 						self_admin_url("update.php?action=install-plugin&plugin={$pluginData['slug']}"),
 						"install-plugin_{$pluginData['slug']}"
 					);
-				} elseif (!$isActive && $isInstalled && $currentUserCanInstallPlugins) {
+				} elseif (false === $isActive && true === $isInstalled && true === $currentUserCanInstallPlugins) {
 					// Plugin está instalado, mas não está ativo
 					$action = 'activate';
 					$link = wp_nonce_url(
@@ -293,7 +293,7 @@ function wc_braspag_init()
 		 */
 		public function init(): void
 		{
-			if (is_admin()) {
+			if (true === is_admin()) {
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-privacy.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-customer-seller-attributes.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-admin-notices.php';

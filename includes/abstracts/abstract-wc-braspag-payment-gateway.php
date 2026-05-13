@@ -22,7 +22,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
     public function payment_fields()
     {
 
-        if ($this->supports('tokenization') && is_checkout()) {
+        if (true === $this->supports('tokenization') && true === is_checkout()) {
             $this->tokenization_script();
             $this->saved_payment_methods();
             $this->form();
@@ -66,7 +66,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
      */
     public function is_available()
     {
-        if (is_add_payment_method_page() && !$this->saved_cards) {
+        if (true === is_add_payment_method_page() && false === $this->saved_cards) {
             return false;
         }
 
@@ -112,7 +112,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
     {
         WC_Braspag_Logger::log('Processing Anti Fraud response: ' . print_r($response, true));
 
-        $order_id = WC_Braspag_Helper::is_wc_lt('3.0') ? $order->id : $order->get_id();
+        $order_id = true === WC_Braspag_Helper::is_wc_lt('3.0') ? $order->id : $order->get_id();
 
         $status = $response->body->Status;
 
@@ -133,7 +133,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
                 $order->update_status('pending', sprintf(__("Braspag charge Pending after Fraud Analysis (%s Status)", 'woocommerce-braspag'), $status));
                 break;
         }
-        if (is_callable(array($order, 'save'))) {
+        if (true === is_callable(array($order, 'save'))) {
             $order->save();
         }
 
@@ -150,7 +150,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
      */
     public function process_braspag_pagador_action_response($response, $order)
     {
-        if (!empty($response->errors)) {
+        if (false === empty($response->errors)) {
 
             $errors = json_decode(json_encode($response->errors), JSON_OBJECT_AS_ARRAY);
 
@@ -316,7 +316,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
 
         $oauth_response = $this->braspag_oauth_request($oauth_request_builder, 'oauth2/token');
 
-        if (!empty($oauth_response->errors)) {
+        if (false === empty($oauth_response->errors)) {
             $this->throw_localized_message($oauth_response);
         }
 
@@ -330,23 +330,23 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
     public static function prepare_response($response)
     {
         $response_data = [];
-        if (isset($response['body'])) {
+        if (true === isset($response['body'])) {
 
             $response_body = $response['body'];
 
-            if (is_string($response_body)) {
+            if (true === is_string($response_body)) {
                 $response_body = json_decode($response_body);
             }
 
             $response_data['body'] = $response_body;
         }
 
-        if (isset($response['response'])) {
+        if (true === isset($response['response'])) {
             $response_data['status'] = $response['response']['code'];
             $response_data['message'] = $response['response']['message'];
         }
 
-        if ($response_data['status'] != '200' && $response_data['status'] != '201') {
+        if ($response_data['status'] !== '200' && $response_data['status'] !== '201') {
             $response_data['errors'] = $response_data['body'];
             $response_data['body'] = null;
         }
@@ -377,7 +377,7 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
 
         WC_Braspag_Logger::log("Info: SOP -> Data Access request: " . print_r($sop_response, true));
 
-        if (!is_object($sop_response) || empty($sop_response->AccessToken)) {
+        if (false === is_object($sop_response) || true === empty($sop_response->AccessToken)) {
             WC_Braspag_Logger::log("Info: SOP -> Error Access request: " . print_r($sop_response, true));
             return null;
         }

@@ -3,7 +3,7 @@
 /**
  * Braspag - Cart/Checkout Blocks Abstract Payment Method
  */
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
     exit;
 }
 

@@ -44,13 +44,13 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
         $braspag_main_settings = get_option('woocommerce_braspag_settings');
 
-        $braspag_enabled = isset($braspag_main_settings['enabled']) ? $braspag_main_settings['enabled'] : 'no';
-        $test_mode = isset($braspag_main_settings['test_mode']) ? $braspag_main_settings['test_mode'] : 'no';
+        $braspag_enabled = true === isset($braspag_main_settings['enabled']) ? $braspag_main_settings['enabled'] : 'no';
+        $test_mode = true === isset($braspag_main_settings['test_mode']) ? $braspag_main_settings['test_mode'] : 'no';
 
         $this->title = $this->get_option('title');
         $this->description = $this->get_option('description');
         $this->soft_descriptor = substr($this->get_option('SoftDescriptor'), 0, 13);
-        $this->enabled = $braspag_enabled == 'yes' ? $this->get_option('enabled') : 'no';
+        $this->enabled = $braspag_enabled === 'yes' ? $this->get_option('enabled') : 'no';
         $this->test_mode = $test_mode == 'yes';
         $this->bank_automatic_redirect = $this->get_option('bank_automatic_redirect', 'no') == 'yes';
         $this->available_types = $this->get_option('available_types', array());
@@ -280,7 +280,7 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
             $statuses = array('failed');
 
-            if ($order->has_status($statuses)) {
+            if (true === $order->has_status($statuses)) {
                 $this->send_failed_order_email($order_id);
             }
 
@@ -354,7 +354,7 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
         do_action('wc_gateway_braspag_pagador_process_response_before', $response, $order);
 
-        $order_id = WC_Braspag_Helper::is_wc_lt('3.0') ? $order->id : $order->get_id();
+        $order_id = true === WC_Braspag_Helper::is_wc_lt('3.0') ? $order->id : $order->get_id();
 
         if (in_array($response->body->Payment->Status, ['2'])) {
 
@@ -367,9 +367,9 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
             $order->add_order_note($message);
         } elseif (in_array($response->body->Payment->Status, ['0', '1', '12'])) {
 
-            WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
+            true === WC_Braspag_Helper::is_wc_lt('3.0') ? $order = wc_get_order($order_id, '_transaction_id', $response->body->Payment->PaymentId) : $order->set_transaction_id($response->body->Payment->PaymentId);
 
-            if ($order->has_status(array('pending', 'failed'))) {
+            if (true === $order->has_status(array('pending', 'failed'))) {
                 WC_Braspag_Helper::is_wc_lt('3.0') ? $order->reduce_order_stock() : wc_reduce_stock_levels($order_id);
             }
 
@@ -384,7 +384,7 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
 
         $order->set_transaction_id($response->body->Payment->PaymentId);
 
-        if (is_callable(array($order, 'save'))) {
+        if (true === is_callable(array($order, 'save'))) {
             $order->save();
         }
 

@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
     exit;
 }
 
@@ -20,7 +20,7 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
 
     public function enqueue_checkout_only_scripts()
     {
-        if (!is_checkout() || !$this->is_active()) {
+        if (false === is_checkout() || false === $this->is_active()) {
             return;
         }
 
@@ -65,7 +65,7 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
             'title'             => $this->get_setting('title', __('Cartão de Débito', 'woocommerce-braspag')),
             'description'       => $this->get_setting('description', ''),
             'supports'          => ['features' => ['products']],
-            'available_types'   => isset($this->settings['available_types']) && is_array($this->settings['available_types']) ? array_values($this->settings['available_types']) : [],
+            'available_types'   => true === isset($this->settings['available_types']) && true === is_array($this->settings['available_types']) ? array_values($this->settings['available_types']) : [],
             'auth3ds20_enabled' => $this->get_setting('auth3ds20_mpi_is_active', 'no') === 'yes',
             'test_mode'         => isset($this->main_settings['test_mode']) && $this->main_settings['test_mode'] === 'yes',
         ];
