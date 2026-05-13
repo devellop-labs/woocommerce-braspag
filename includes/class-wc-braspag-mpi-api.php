@@ -135,7 +135,7 @@ class WC_Braspag_Mpi_API
             $response_data['message'] = $response['response']['message'];
         }
 
-        if ($response_data['status'] !== '200' && $response_data['status'] !== '201') {
+        if (!in_array((int) $response_data['status'], [200, 201], true)) {
             $response_data['errors'] = $response_data['body'];
             $response_data['body'] = null;
         }
