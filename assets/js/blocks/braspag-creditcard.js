@@ -422,7 +422,7 @@
                 unsubscribeValidation();
                 unsubscribePayment();
             };
-        }, [props?.eventRegistration?.onCheckoutValidation, props?.eventRegistration?.onPaymentSetup, props?.emitResponse]);
+        }, []);
 
         return el(
             Fragment,
