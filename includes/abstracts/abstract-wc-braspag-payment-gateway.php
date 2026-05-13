@@ -503,8 +503,8 @@ abstract class WC_Braspag_Payment_Gateway extends WC_Payment_Gateway
         $mpi_auth_token_response = $this->braspag_mpi_request($mpi_auth_token_request_builder, 'v2/auth/token');
 
         if (!empty($mpi_auth_token_response->errors)) {
-            $this->throw_localized_message($mpi_auth_token_response);
             WC_Braspag_Logger::log("ERROR: Begin processing Mpi Auth request:" . print_r($mpi_auth_token_response, true));
+            throw new WC_Braspag_Exception(print_r($mpi_auth_token_response, true), __('Erro ao obter token MPI para autenticação 3DS 2.0.', 'woocommerce-braspag'));
         }
 
         WC_Braspag_Logger::log("Info: Begin processing Mpi Auth request:" . print_r($mpi_auth_token_response, true));
