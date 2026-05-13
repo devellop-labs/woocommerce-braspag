@@ -44,7 +44,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
     protected $auth3ds20_mpi_authorize_on_unsupported_brand;
     protected $sop_enabled;
     protected $sop_tokenize;
-    protected $retry_interval;
+    public $retry_interval;
 
     public function __construct()
     {
