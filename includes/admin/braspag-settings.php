@@ -218,6 +218,13 @@ return apply_filters(
             /* translators: post_notification URL */
             'description' => $this->display_admin_settings_webhook_description(),
         ),
+        'webhook_secret' => array(
+            'title' => __('Webhook Secret', 'woocommerce-braspag'),
+            'type' => 'password',
+            'description' => __('Optional shared secret used to validate webhook signatures (HMAC SHA-256).', 'woocommerce-braspag'),
+            'default' => '',
+            'desc_tip' => true,
+        ),
         'antifraud' => array(
             'title' => "<hr>" . __('Anti Fraud', 'woocommerce-braspag'),
             'type' => 'title',
@@ -236,6 +243,17 @@ return apply_filters(
             'type' => 'checkbox',
             'description' => __('Choose whether you wish to send Anti Fraud data with Pagador or not.'),
             'default' => 'no',
+            'desc_tip' => true,
+        ),
+        'antifraud_provider' => array(
+            'title' => __('Antifraud Provider', 'woocommerce-braspag'),
+            'type' => 'select',
+            'description' => __('Choose which antifraud provider will be used in credit card transactions.', 'woocommerce-braspag'),
+            'default' => 'cybersource',
+            'options' => array(
+                'cybersource' => __('Cybersource', 'woocommerce-braspag'),
+                'clearsale' => __('ClearSale', 'woocommerce-braspag'),
+            ),
             'desc_tip' => true,
         ),
         'antifraud_finger_print_org_id' => array(
@@ -258,6 +276,13 @@ return apply_filters(
             'type' => 'checkbox',
             'description' => __('Choose whether you wish to use Order ID to compose Finger Print ID or not', 'woocommerce-braspag'),
             'default' => 'no',
+            'desc_tip' => true,
+        ),
+        'antifraud_clearsale_app_key' => array(
+            'title' => __('ClearSale AppKey', 'woocommerce-braspag'),
+            'type' => 'text',
+            'description' => __('Get your ClearSale AppKey from Braspag Support.', 'woocommerce-braspag'),
+            'default' => '',
             'desc_tip' => true,
         ),
         'antifraud_options_sequence' => array(

@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
 	exit; // Exit if accessed directly
 }
 
@@ -26,8 +26,8 @@ class WC_Braspag_Logger
 		}
 
 		if (apply_filters('wc_braspag_logging', true, $message)) {
-			if (empty(self::$logger)) {
-				if (WC_Braspag_Helper::is_wc_lt('3.0')) {
+			if (true === empty(self::$logger)) {
+				if (true === WC_Braspag_Helper::is_wc_lt('3.0')) {
 					self::$logger = new WC_Logger();
 				} else {
 					self::$logger = wc_get_logger();
@@ -85,7 +85,7 @@ class WC_Braspag_Logger
      */
     public static function allow_remote_logging($should_log, $context)
     {
-        if (isset($context['source']) && $context['source'] === self::WC_LOG_FILENAME) {
+        if (true === isset($context['source']) && $context['source'] === self::WC_LOG_FILENAME) {
             return true; // Enable remote logging for this source
         }
         return $should_log;

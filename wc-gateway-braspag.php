@@ -14,7 +14,7 @@
  * Author: Braspag
  * Author URI: https://braspag.com.br/
  *
- * Version: 2.3.5.42
+ * Version: 2.3.5.44
  * Requires at least: 5.3.2
  * Tested up to: 6.8.2
  * Requires PHP: 7.4
@@ -99,13 +99,13 @@ function wc_braspag_missing_extra_checkout_fields_notice()
 add_action('plugins_loaded', 'wc_braspag_init');
 function wc_braspag_init()
 {
-	if (!class_exists('WooCommerce')) {
+	if (false === class_exists('WooCommerce')) {
 		add_action('admin_notices', 'wc_braspag_missing_wc_notice');
 		return;
 	}
 
 	// Verifica Extra Checkout Fields for Brazil.
-	if (!class_exists('Extra_Checkout_Fields_For_Brazil')) {
+	if (false === class_exists('Extra_Checkout_Fields_For_Brazil')) {
 		add_action('admin_notices', 'wc_braspag_missing_extra_checkout_fields_notice');
 		return;
 	}
@@ -114,7 +114,7 @@ function wc_braspag_init()
 	 * Required minimums and constants
 	 */
 	global $wp_version;
-	$bp_version = '2.3.5.42';
+	$bp_version = '2.3.5.44';
 	$min_php_ver = '5.6.0';
 	$min_wc_ver = '4.0.0';
 	$min_wp_ver = '5.3.2';
@@ -164,7 +164,7 @@ function wc_braspag_init()
 	define('WC_BRASPAG_MAIN_FILE', __FILE__);
 	define('WC_BRASPAG_PLUGIN_URL', untrailingslashit(plugins_url(basename(plugin_dir_path(__FILE__)), basename(__FILE__))));
 	define('WC_BRASPAG_PLUGIN_PATH', untrailingslashit(plugin_dir_path(__FILE__)));
-  
+
 	add_action(
 		'admin_notices',
 		function () {
@@ -192,21 +192,24 @@ function wc_braspag_init()
 				],
 			];
 
-			$allPlugins = function_exists('get_plugins') ? get_plugins() : [];
+			$allPlugins = true === function_exists('get_plugins') ? get_plugins() : [];
 
 			foreach ($requiredPlugins as $pluginName => $pluginData) {
-				$isInstalled = !empty($allPlugins[$pluginData['file']]); // Verifica se está instalado
-				$isActive = is_plugin_active($pluginData['file']); // Verifica se está ativo
-	
+				// Verifica se está instalado
+				$isInstalled = !empty($allPlugins[$pluginData['file']]);
+
+				// Verifica se está ativo
+				$isActive = is_plugin_active($pluginData['file']);
+
 				// Define a ação e o link com base no estado do plugin
-				if (!$isInstalled && $currentUserCanInstallPlugins) {
+				if (false === $isInstalled && true === $currentUserCanInstallPlugins) {
 					// Plugin não está instalado
 					$action = 'install';
 					$link = wp_nonce_url(
 						self_admin_url("update.php?action=install-plugin&plugin={$pluginData['slug']}"),
 						"install-plugin_{$pluginData['slug']}"
 					);
-				} elseif (!$isActive && $isInstalled && $currentUserCanInstallPlugins) {
+				} elseif (false === $isActive && true === $isInstalled && true === $currentUserCanInstallPlugins) {
 					// Plugin está instalado, mas não está ativo
 					$action = 'activate';
 					$link = wp_nonce_url(
@@ -290,7 +293,7 @@ function wc_braspag_init()
 		 */
 		public function init(): void
 		{
-			if (is_admin()) {
+			if (true === is_admin()) {
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-privacy.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-customer-seller-attributes.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-admin-notices.php';
@@ -316,6 +319,15 @@ function wc_braspag_init()
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/payment-methods/class-wc-gateway-braspag-pix.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-order-handler.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-customer.php';
+
+			// Load Checkout Blocks
+			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/blocks/class-wc-braspag-blocks.php';
+
+			// Load Brazil Fields Compatibility
+			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/blocks/bridge/class-wc-braspag-blocks-ecfb-bridge.php';
+			
+			// Initialize Brazil Fields Compatibility
+			WC_Braspag_Blocks_ECFB_Bridge::init();
 
 			add_filter('woocommerce_payment_gateways', array($this, 'add_gateways'));
 			add_filter('plugin_action_links_' . plugin_basename(WC_BRASPAG_MAIN_FILE), array($this, 'plugin_action_links'));
