@@ -439,7 +439,7 @@
                 unsubscribeValidation();
                 unsubscribePayment();
             };
-        });
+        }, []);
 
         return el(
             Fragment,
