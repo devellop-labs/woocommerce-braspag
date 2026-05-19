@@ -831,7 +831,6 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
             'yes' !== $this->antifraud_enabled
             || 'yes' !== $this->antifraud_send_with_pagador_transaction
             // || 'yes' === $this->auth3ds20_mpi_is_active
-            || 'yes' === $this->sop_enabled
         ) {
             return $payment_data;
         }
@@ -912,9 +911,14 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
             "Shipping" => [
                 "Addressee" => $order->get_formatted_billing_full_name(),
                 "Method" => "LowCost",
-                "Phone" => preg_replace('/\D+/', '', $order->get_billing_phone())
+                "Phone" => $this->format_phone_for_antifraud($order->get_billing_phone()),
+                "DocumentNumber" => $customer_identity_data['value']
             ]
         ];
+
+        if ('ClearSale' === $this->get_antifraud_provider_name() && !empty($this->antifraud_clearsale_app_key)) {
+            $payment_data_fraud_analysis_data['AppKey'] = $this->antifraud_clearsale_app_key;
+        }
 
         $payment_data_fraud_analysis_data = apply_filters(
             'wc_gateway_braspag_pagador_request_creditcard_payment_antifraud_builder',

@@ -791,6 +791,16 @@ JS;
      * @param $order
      * @return array
      */
+    protected function format_phone_for_antifraud($phone)
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if ($digits === '') return '';
+        if (substr($digits, 0, 2) !== '55') {
+            $digits = '55' . $digits;
+        }
+        return substr($digits, 0, 15);
+    }
+
     public function get_customer_identity_data($order)
     {
         $personType = (string) $order->get_meta('_billing_persontype'); // '1' = PF, '2' = PJ (padrão plugins BR)
@@ -865,7 +875,7 @@ JS;
         return [
             "Name" => $order->get_formatted_billing_full_name(),
             "Email" => $order->get_billing_email(),
-            "Phone" => preg_replace('/\D+/', '', $order->get_billing_phone()),
+            "Phone" => $this->format_phone_for_antifraud($order->get_billing_phone()),
             "Identity" => $identity,
             "IdentityType" => $identityType,
             "Address" => [
@@ -974,8 +984,8 @@ JS;
                 /* translators: transaction id */
                 $order->update_status('antifraud_reject_order_status', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
                 $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage ?? '';
-                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
-                $localized_message = __('Payment processing failed. | (%s) -', 'woocommerce-braspag', $velocity) . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
+                $velocity = ($velocityStatus === 'Reject') ? ' [VelocityAnalysis]' : '';
+                $localized_message = sprintf(__('Payment processing failed%s: %s (Cod. %s).', 'woocommerce-braspag'), $velocity, $response->body->Payment->ProviderReturnMessage, $response->body->Payment->ProviderReturnCode);
                 $order->add_order_note($localized_message);
                 throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
             }
@@ -1018,15 +1028,15 @@ JS;
 
                 /* translators: transaction id */
                 $order->update_status('antifraud_reject_order_status', sprintf(__('Braspag charge pending (Charge ID: %s).', 'woocommerce-braspag'), $response->body->Payment->PaymentId));
-                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
-                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
-                $localized_message = __('Payment processing failed.' . "{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
+                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage ?? '';
+                $velocity = ($velocityStatus === 'Reject') ? ' [VelocityAnalysis]' : '';
+                $localized_message = sprintf(__('Payment processing failed%s: %s (Cod. %s).', 'woocommerce-braspag'), $velocity, $response->body->Payment->ProviderReturnMessage, $response->body->Payment->ProviderReturnCode);
                 $order->add_order_note($localized_message);
                 throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
             } else {
-                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage;
-                $velocity = ($velocityStatus == 'Reject') ? 'VelocityAnalysis' : '';
-                $localized_message = __('Payment processing failed.' . "{$velocity}", 'woocommerce-braspag') . " " . $response->body->Payment->ProviderReturnMessage . " (Cod. " . $response->body->Payment->ProviderReturnCode . ").";
+                $velocityStatus = $response->body->Payment->VelocityAnalysis->ResultMessage ?? '';
+                $velocity = ($velocityStatus === 'Reject') ? ' [VelocityAnalysis]' : '';
+                $localized_message = sprintf(__('Payment processing failed%s: %s (Cod. %s).', 'woocommerce-braspag'), $velocity, $response->body->Payment->ProviderReturnMessage, $response->body->Payment->ProviderReturnCode);
                 $order->add_order_note($localized_message);
                 throw new WC_Braspag_Exception(print_r($response, true), $localized_message);
             }

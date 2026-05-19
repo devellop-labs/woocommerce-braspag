@@ -176,12 +176,12 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
             wc_add_notice($e->getLocalizedMessage(), 'error');
             WC_Braspag_Logger::log('Error: ' . $e->getMessage());
 
-            if (is_object($order) && method_exists($order, 'get_transaction_id')) {
+            if (TRUE === is_object($order) && TRUE === method_exists($order, 'get_transaction_id')) {
                 do_action('wc_gateway_braspag_pagador_process_payment_error', $e, $order);
             }
 
             /* translators: error message */
-            if ($order->get_transaction_id()) {
+            if ('' !== (string) $order->get_transaction_id()) {
                 $order->update_status('failed');
             } else {
                 $order->add_order_note($e->getLocalizedMessage());
@@ -389,10 +389,10 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
         $_braspag_pix_expiration_date = $order->get_meta('_braspag_pix_expiration_date');
         $_braspag_pix_received_date = $order->get_meta('_braspag_pix_received_date');
         $explodeExpirationDate = explode("-", (string) $_braspag_pix_expiration_date);
-        $expirationSeconds = isset($explodeExpirationDate[0]) ? absint($explodeExpirationDate[0]) : 0;
+        $expirationSeconds = TRUE === isset($explodeExpirationDate[0]) ? absint($explodeExpirationDate[0]) : 0;
         $startTime = strtotime((string) $_braspag_pix_received_date);
-        $endTime = $startTime && $expirationSeconds ? strtotime("+{$expirationSeconds} seconds", $startTime) : false;
-        $expirationDate = $endTime ? date_i18n('H:i', $endTime) : '';
+        $endTime = (FALSE !== $startTime && 0 !== $expirationSeconds) ? strtotime("+{$expirationSeconds} seconds", $startTime) : false;
+        $expirationDate = FALSE !== $endTime ? date_i18n('H:i', $endTime) : '';
         $imageQrcode = preg_replace('/[^A-Za-z0-9+\/=]/', '', (string) $order->get_meta('_braspag_pix_qr_code_image'));
         //$imageQrcode = $order->get_meta('_braspag_pix_qr_code_image');
         $digitableLine = (string) $order->get_meta('_braspag_pix_digitable_line');
@@ -405,14 +405,14 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
         ?>
                 <div class="header">
                     <h4>SEU CÓDIGO PIX FOI GERADO</h4>
-                    <img class="image-pix" src="<?php echo $swf_url; ?>" alt="pix">
+                    <img class="image-pix" src="<?php echo esc_url($swf_url); ?>" alt="pix">
                 </div>
                 <table class="woocommerce-table woocommerce-table--order-details shop_table order_details">
                     <tbody>
                         <tr class="woocommerce-table__line-item order_item">
                             <td class="woocommerce-table__product-total product-total text-center validade-pix" colspan="2">
                                 <p class="stopwatch">
-                                    <img class="image-time" src="<?php echo $timer_url; ?>" alt="timer">
+                                    <img class="image-time" src="<?php echo esc_url($timer_url); ?>" alt="timer">
                                         Validade do código Pix até às: <strong><?php echo esc_html($expirationDate); ?></strong>
                                 </p>
                             </td>
@@ -424,7 +424,7 @@ class WC_Gateway_Braspag_Pix extends WC_Gateway_Braspag
                                     Para pagar no banco on-line ou aplicativo do seu banco,
                                     <strong>Escanei o QR Code ou copie o código Pix:</strong>
                                 </p>
-                                 <?php if ($imageQrcode) : ?>
+                                 <?php if ('' !== $imageQrcode) : ?>
                                     <img alt="QR-Code PIX" src="data:image/png;base64,<?php echo esc_attr($imageQrcode); ?>" />
                                 <?php endif; ?>
                             </td>

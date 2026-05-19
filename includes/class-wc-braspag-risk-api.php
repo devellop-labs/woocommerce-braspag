@@ -24,7 +24,7 @@ class WC_Braspag_Risk_API
      */
     public static function get_end_point($braspag_settings)
     {
-        return 'yes' === $braspag_settings['test_mode'] ? self::SANDBOX_ENDPOINT : self::PRODUCTION_ENDPOINT;
+        return 'yes' === ($braspag_settings['test_mode'] ?? 'no') ? self::SANDBOX_ENDPOINT : self::PRODUCTION_ENDPOINT;
     }
 
     /**

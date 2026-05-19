@@ -118,13 +118,13 @@ class WC_Braspag_Helper
 		}
 
 		$order = self::find_order_by_transaction_id($charge_id);
-		if ($order) {
+		if (FALSE !== $order) {
 			return $order;
 		}
 
 		foreach ($extra_meta as $meta_key) {
 			$order = self::find_order_by_meta_key($meta_key, $charge_id);
-			if ($order) {
+			if (FALSE !== $order) {
 				return $order;
 			}
 		}
@@ -134,7 +134,7 @@ class WC_Braspag_Helper
 
 	private static function find_order_by_transaction_id(string $charge_id)
 	{
-		if (!function_exists('wc_get_orders')) {
+		if (FALSE === function_exists('wc_get_orders')) {
 			return false;
 		}
 
@@ -147,7 +147,7 @@ class WC_Braspag_Helper
 
 	private static function find_order_by_meta_key(string $meta_key, string $charge_id)
 	{
-		if (!function_exists('wc_get_orders')) {
+		if (FALSE === function_exists('wc_get_orders')) {
 			return false;
 		}
 
@@ -169,7 +169,7 @@ class WC_Braspag_Helper
 			$charge_id
 		));
 
-		if ($order_id) {
+		if (NULL !== $order_id) {
 			return wc_get_order($order_id);
 		}
 
@@ -180,7 +180,7 @@ class WC_Braspag_Helper
 				$charge_id
 			));
 
-			if ($order_id) {
+			if (NULL !== $order_id) {
 				return wc_get_order($order_id);
 			}
 		}
@@ -190,7 +190,7 @@ class WC_Braspag_Helper
 
 	private static function extract_order(array $orders)
 	{
-		if (!empty($orders) && $orders[0] instanceof WC_Order) {
+		if (FALSE === empty($orders) && $orders[0] instanceof WC_Order) {
 			return $orders[0];
 		}
 		return false;
