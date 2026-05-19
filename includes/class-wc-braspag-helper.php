@@ -107,64 +107,92 @@ class WC_Braspag_Helper
 	}
 
 	/**
-	 * @param $charge_id
-	 * @return bool|WC_Order|WC_Order_Refund
+	 * @param string   $charge_id  PaymentId do Braspag
+	 * @param string[] $extra_meta Meta keys adicionais para busca (ex: _braspag_pix_payment_id)
+	 * @return WC_Order|false
 	 */
-	public static function get_order_by_charge_id($charge_id)
+	public static function get_order_by_charge_id(string $charge_id, array $extra_meta = [])
 	{
-		global $wpdb;
-
 		if (empty($charge_id)) {
 			return false;
 		}
 
-		if (true === function_exists('wc_get_orders')) {
-			$orders = wc_get_orders(array(
-				'limit' => 1,
-				'type' => 'shop_order',
-				'meta_key' => '_braspag_pix_payment_id',
-				'meta_value' => $charge_id,
-			));
+		$order = self::find_order_by_transaction_id($charge_id);
+		if ($order) {
+			return $order;
+		}
 
-			if (false === empty($orders) && true === is_object($orders[0]) && true === method_exists($orders[0], 'get_id')) {
-				return $orders[0];
-			}
-
-			$orders = wc_get_orders(array(
-				'limit' => 1,
-				'type' => 'shop_order',
-				'transaction_id' => $charge_id,
-			));
-
-			if (false === empty($orders) && true === is_object($orders[0]) && true === method_exists($orders[0], 'get_id')) {
-				return $orders[0];
+		foreach ($extra_meta as $meta_key) {
+			$order = self::find_order_by_meta_key($meta_key, $charge_id);
+			if ($order) {
+				return $order;
 			}
 		}
 
-		$order_id = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT DISTINCT ID FROM $wpdb->posts as posts LEFT JOIN $wpdb->postmeta as meta ON posts.ID = meta.post_id WHERE meta.meta_value = %s AND meta.meta_key = %s LIMIT 1",
-				$charge_id,
-				'_braspag_pix_payment_id'
-			)
-		);
+		return self::find_order_by_legacy_sql($charge_id, $extra_meta);
+	}
 
-		if (false === empty($order_id)) {
+	private static function find_order_by_transaction_id(string $charge_id)
+	{
+		if (!function_exists('wc_get_orders')) {
+			return false;
+		}
+
+		return self::extract_order(wc_get_orders([
+			'limit'          => 1,
+			'type'           => 'shop_order',
+			'transaction_id' => $charge_id,
+		]));
+	}
+
+	private static function find_order_by_meta_key(string $meta_key, string $charge_id)
+	{
+		if (!function_exists('wc_get_orders')) {
+			return false;
+		}
+
+		return self::extract_order(wc_get_orders([
+			'limit'      => 1,
+			'type'       => 'shop_order',
+			'meta_key'   => $meta_key,
+			'meta_value' => $charge_id,
+		]));
+	}
+
+	private static function find_order_by_legacy_sql(string $charge_id, array $extra_meta = [])
+	{
+		global $wpdb;
+
+		$order_id = $wpdb->get_var($wpdb->prepare(
+			"SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s AND meta_value = %s LIMIT 1",
+			'_transaction_id',
+			$charge_id
+		));
+
+		if ($order_id) {
 			return wc_get_order($order_id);
 		}
 
-		$order_id = $wpdb->get_var(
-			$wpdb->prepare(
+		foreach ($extra_meta as $meta_key) {
+			$order_id = $wpdb->get_var($wpdb->prepare(
 				"SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s AND meta_value = %s LIMIT 1",
-				'_transaction_id',
+				$meta_key,
 				$charge_id
-			)
-		);
+			));
 
-		if (false === empty($order_id)) {
-			return wc_get_order($order_id);
+			if ($order_id) {
+				return wc_get_order($order_id);
+			}
 		}
 
+		return false;
+	}
+
+	private static function extract_order(array $orders)
+	{
+		if (!empty($orders) && $orders[0] instanceof WC_Order) {
+			return $orders[0];
+		}
 		return false;
 	}
 }
