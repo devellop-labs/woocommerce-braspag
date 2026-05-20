@@ -65,6 +65,10 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
             return false;
         }
 
+        if ('' === $raw_body) {
+            return false;
+        }
+
         if (JSON_ERROR_NONE !== json_last_error() || FALSE === is_array($request_body)) {
             return false;
         }
@@ -73,11 +77,11 @@ class WC_Braspag_Webhook_Handler extends WC_Braspag_Payment_Gateway
             return false;
         }
 
-        $change_type = (string) $request_body['ChangeType'];
-
-        if (FALSE === in_array($change_type, array('1', '2', '3', '4', '5', '6', '7', '8'), true)) {
+        if (!is_scalar($request_body['PaymentId']) || '' === (string) $request_body['PaymentId']) {
             return false;
         }
+
+        $change_type = (string) $request_body['ChangeType'];
 
         if (FALSE === in_array($change_type, array('1', '2', '3', '4', '5', '6', '7', '8', '25'), true)) {
             return false;

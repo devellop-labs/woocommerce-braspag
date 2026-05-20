@@ -76,10 +76,14 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
 
         // Apenas o script de Blocks com dependências limpas — idêntico ao padrão
         // do Pix/Boleto. Scripts pesados ficam em enqueue_checkout_only_scripts().
+        $deps = ['wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-i18n'];
+        if (wp_script_is('wc-braspag-auth3ds20-blocks', 'registered')) {
+            $deps[] = 'wc-braspag-auth3ds20-blocks';
+        }
         wp_register_script(
             $handle,
             plugins_url('assets/js/blocks/braspag-debitcard.js', WC_BRASPAG_MAIN_FILE),
-            ['wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-i18n'],
+            $deps,
             WC_BRASPAG_VERSION,
             true
         );
@@ -96,6 +100,7 @@ final class WC_Braspag_Blocks_DebitCard extends WC_Braspag_Blocks_Abstract
             'available_types'   => true === isset($this->settings['available_types']) && true === is_array($this->settings['available_types']) ? array_values($this->settings['available_types']) : [],
             'auth3ds20_enabled' => $this->get_setting('auth3ds20_mpi_is_active', 'no') === 'yes',
             'bpmpiToken'        => $this->fetch_mpi_token(),
+            'cartHash'          => WC()->cart ? WC()->cart->get_cart_hash() : '',
             'test_mode'         => isset($this->main_settings['test_mode']) && $this->main_settings['test_mode'] === 'yes',
         ];
     }

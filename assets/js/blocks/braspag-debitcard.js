@@ -93,7 +93,8 @@
         };
     }
 
-    function buildPaymentMethodData() {
+    function buildPaymentMethodData(auth) {
+        const a = auth || {};
         return {
             payment_method: 'braspag_debitcard',
             'braspag_debitcard-card-holder': getInputValue('braspag_debitcard-card-holder'),
@@ -101,22 +102,22 @@
             'braspag_debitcard-card-expiry': normalizeExpiry(getInputValue('braspag_debitcard-card-expiry')),
             'braspag_debitcard-card-cvc': getInputValue('braspag_debitcard-card-cvc'),
             'braspag_debitcard-card-type': getInputValue('braspag_debitcard-card-type'),
-            bpmpi_auth_cavv: getInputValue('bpmpi_auth_cavv'),
-            bpmpi_auth_xid: getInputValue('bpmpi_auth_xid'),
-            bpmpi_auth_eci: getInputValue('bpmpi_auth_eci'),
-            bpmpi_auth_version: getInputValue('bpmpi_auth_version'),
-            bpmpi_auth_reference_id: getInputValue('bpmpi_auth_reference_id'),
-            bpmpi_auth_failure_type: getInputValue('bpmpi_auth_failure_type', '0'),
+            bpmpi_auth_cavv:         a.bpmpiAuthCavv        || '',
+            bpmpi_auth_xid:          a.bpmpiAuthXid         || '',
+            bpmpi_auth_eci:          a.bpmpiAuthEci         || '',
+            bpmpi_auth_version:      a.bpmpiAuthVersion     || '',
+            bpmpi_auth_reference_id: a.bpmpiAuthReferenceId || '',
+            bpmpi_auth_failure_type: a.bpmpiAuthFailureType || '0',
         };
     }
 
     async function run3dsProcess() {
         if (!settings.auth3ds20_enabled) {
-            return true;
+            return {};
         }
 
         if (typeof bpmpi === 'undefined' || !bpmpi.isBpmpiEnabled()) {
-            return true;
+            return {};
         }
 
         bpmpi.paymentType = 'debitcard';
@@ -125,9 +126,7 @@
 
         await bpmpi.startTransaction();
         await bpmpi.renderData();
-        await bpmpi.getAuthenticateData();
-
-        return true;
+        return await bpmpi.getAuthenticateData();
     }
 
     function HiddenInteropFields(props) {
@@ -158,7 +157,7 @@
                     el('input', { type: 'hidden', className: 'bpmpi_installments', defaultValue: '1' }),
                     el('input', { type: 'hidden', className: 'bpmpi_totalamount', defaultValue: cartTotal }),
                     el('input', { type: 'hidden', className: 'bpmpi_currency', defaultValue: 'BRL' }),
-                    el('input', { type: 'hidden', className: 'bpmpi_ordernumber', defaultValue: '' }),
+                    el('input', { type: 'hidden', className: 'bpmpi_ordernumber', defaultValue: settings.cartHash || '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_transaction_mode', defaultValue: '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_merchant_url', defaultValue: window.location.hostname || '' })
                 ),
@@ -195,6 +194,7 @@
         const [cardBrand, setCardBrand] = useState(null);
         const [expiry, setExpiry] = useState('');
         const validationMessageRef = useRef('');
+        const auth3dsDataRef = useRef({});
 
         function handleCardNumber(event) {
             const raw = event.target.value;
@@ -241,7 +241,7 @@
 
         useEffect(() => {
             if (settings.auth3ds20_enabled && typeof bpmpi !== 'undefined') {
-                bpmpi.preload(settings.bpmpiToken || '');
+                bpmpi.preload(settings.bpmpiToken || '', settings.cartHash || '');
             }
         }, []);
 
@@ -263,7 +263,7 @@
 
                 try {
                     if (settings.auth3ds20_enabled) {
-                        await run3dsProcess();
+                        auth3dsDataRef.current = await run3dsProcess();
                     }
 
                     validationMessageRef.current = '';
@@ -282,7 +282,7 @@
                 return {
                     type: emitResponse.responseTypes.SUCCESS,
                     meta: {
-                        paymentMethodData: buildPaymentMethodData(),
+                        paymentMethodData: buildPaymentMethodData(auth3dsDataRef.current),
                     },
                 };
             });

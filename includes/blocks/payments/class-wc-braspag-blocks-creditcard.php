@@ -124,6 +124,7 @@ final class WC_Braspag_Blocks_CreditCard extends WC_Braspag_Blocks_Abstract
             'sop_tokenize'      => isset($this->main_settings['silentpost_token_type']) && $this->main_settings['silentpost_token_type'] === 'yes',
             'auth3ds20_enabled' => $this->get_setting('auth3ds20_mpi_is_active', 'no') === 'yes',
             'bpmpiToken'        => $this->fetch_mpi_token(),
+            'cartHash'          => WC()->cart ? WC()->cart->get_cart_hash() : '',
             'verify_enabled'    => $this->get_setting('verifycard_enabled', 'no') === 'yes',
             'antifraud_enabled' => isset($this->main_settings['antifraud_enabled']) && $this->main_settings['antifraud_enabled'] === 'yes',
             'test_mode'         => isset($this->main_settings['test_mode']) && $this->main_settings['test_mode'] === 'yes',

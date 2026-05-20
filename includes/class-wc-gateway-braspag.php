@@ -721,10 +721,11 @@ JS;
             'braspag_auth3ds20_params',
             apply_filters(
                 'wc_gateway_braspag_pagador_auth3ds20_params',
-                array(
+                array_merge($auth3ds_params, array(
                     'bpmpiToken'        => $bpmpi_token,
                     'isTestEnvironment' => $this->test_mode,
-                )
+                    'cartHash'          => WC()->cart ? WC()->cart->get_cart_hash() : '',
+                ))
             )
         );
 

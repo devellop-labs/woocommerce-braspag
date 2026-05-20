@@ -123,7 +123,8 @@
         };
     }
 
-    function buildPaymentMethodData() {
+    function buildPaymentMethodData(auth) {
+        const a = auth || {};
         return {
             payment_method: 'braspag_creditcard',
             'braspag_creditcard-card-holder': getInputValue('braspag_creditcard-card-holder'),
@@ -135,12 +136,12 @@
             'wc-braspag_creditcard-new-payment-method': document.getElementById('wc-braspag_creditcard-new-payment-method')?.checked ? 'true' : 'false',
             'braspag_creditcard-card-paymenttoken': getInputValue('braspag_creditcard-card-paymenttoken'),
             'braspag_creditcard-card-cardtoken': getInputValue('braspag_creditcard-card-cardtoken'),
-            bpmpi_auth_cavv: getInputValue('bpmpi_auth_cavv'),
-            bpmpi_auth_xid: getInputValue('bpmpi_auth_xid'),
-            bpmpi_auth_eci: getInputValue('bpmpi_auth_eci'),
-            bpmpi_auth_version: getInputValue('bpmpi_auth_version'),
-            bpmpi_auth_reference_id: getInputValue('bpmpi_auth_reference_id'),
-            bpmpi_auth_failure_type: getInputValue('bpmpi_auth_failure_type', '0'),
+            bpmpi_auth_cavv:         a.bpmpiAuthCavv        || '',
+            bpmpi_auth_xid:          a.bpmpiAuthXid         || '',
+            bpmpi_auth_eci:          a.bpmpiAuthEci         || '',
+            bpmpi_auth_version:      a.bpmpiAuthVersion     || '',
+            bpmpi_auth_reference_id: a.bpmpiAuthReferenceId || '',
+            bpmpi_auth_failure_type: a.bpmpiAuthFailureType || '0',
         };
     }
 
@@ -173,22 +174,18 @@
 
     async function run3dsProcess() {
         if (!settings.auth3ds20_enabled) {
-            return true;
+            return {};
         }
 
         if (typeof bpmpi === 'undefined' || !bpmpi.isBpmpiEnabled()) {
-            return true;
+            return {};
         }
 
         bpmpi.paymentType = 'creditcard';
-        bpmpi.transactionStarted = false;
-        bpmpi.accessToken = settings.bpmpiToken || '';
 
         await bpmpi.startTransaction();
         await bpmpi.renderData();
-        await bpmpi.getAuthenticateData();
-
-        return true;
+        return await bpmpi.getAuthenticateData();
     }
 
     async function runSopProcess() {
@@ -266,7 +263,12 @@
                     el('input', { type: 'hidden', name: 'bpmpi_auth_version', id: 'bpmpi_auth_version', className: 'bpmpi_auth_version', defaultValue: '' }),
                     el('input', { type: 'hidden', name: 'bpmpi_auth_reference_id', id: 'bpmpi_auth_reference_id', className: 'bpmpi_auth_reference_id', defaultValue: '' })
                 ),
-                el('div', { id: 'bpmpi_data_payment' },
+                el('div', { id: 'bpmpi_data_recurring' },
+                    el('input', { type: 'hidden', className: 'bpmpi_recurring_enddate',              defaultValue: '' }),
+                    el('input', { type: 'hidden', className: 'bpmpi_recurring_frequency',            defaultValue: '' }),
+                    el('input', { type: 'hidden', className: 'bpmpi_recurring_originalpurchasedate', defaultValue: '' })
+                ),
+            el('div', { id: 'bpmpi_data_payment' },
                     el('input', { type: 'hidden', className: 'bpmpi_paymentmethod', defaultValue: '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_cardnumber', defaultValue: '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_cardexpirationmonth', defaultValue: '' }),
@@ -274,7 +276,7 @@
                     el('input', { type: 'hidden', className: 'bpmpi_installments', defaultValue: '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_totalamount', defaultValue: cartTotal }),
                     el('input', { type: 'hidden', className: 'bpmpi_currency', defaultValue: 'BRL' }),
-                    el('input', { type: 'hidden', className: 'bpmpi_ordernumber', defaultValue: '' }),
+                    el('input', { type: 'hidden', className: 'bpmpi_ordernumber', defaultValue: settings.cartHash || '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_transaction_mode', defaultValue: '' }),
                     el('input', { type: 'hidden', className: 'bpmpi_merchant_url', defaultValue: window.location.hostname || '' })
                 ),
@@ -313,6 +315,7 @@
         const [expiry, setExpiry] = useState('');
         const validationMessageRef = useRef('');
         const subscribedRef = useRef(false);
+        const auth3dsDataRef = useRef({});
 
         function handleCardNumber(event) {
             const raw = event.target.value;
@@ -370,7 +373,7 @@
 
         useEffect(() => {
             if (settings.auth3ds20_enabled && typeof bpmpi !== 'undefined') {
-                bpmpi.preload(settings.bpmpiToken || '');
+                bpmpi.preload(settings.bpmpiToken || '', settings.cartHash || '');
             }
         }, []);
 
@@ -406,7 +409,7 @@
                     }
 
                     if (settings.auth3ds20_enabled) {
-                        await run3dsProcess();
+                        auth3dsDataRef.current = await run3dsProcess();
                     }
 
                     if (settings.sop_enabled) {
@@ -429,7 +432,7 @@
                 return {
                     type: emitResponse.responseTypes.SUCCESS,
                     meta: {
-                        paymentMethodData: buildPaymentMethodData(),
+                        paymentMethodData: buildPaymentMethodData(auth3dsDataRef.current),
                     },
                 };
             });

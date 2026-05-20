@@ -24,18 +24,22 @@
         paymentType: '',
         transactionStarted: false,
         accessToken: '',
+        orderNumber: '',
 
         isBpmpiEnabled: function () {
             return bpmpiBlocksEnabled;
         },
 
-        preload: async function (token) {
+        preload: async function (token, cartHash) {
             if (!this.isBpmpiEnabled()) return;
             this.accessToken = token
                 || (typeof braspag_auth3ds20_params !== 'undefined' ? (braspag_auth3ds20_params.bpmpiToken || '') : '');
+            this.orderNumber = cartHash
+                || (typeof braspag_auth3ds20_params !== 'undefined' ? (braspag_auth3ds20_params.cartHash || '') : '');
             this.transactionStarted = true;
             renderField('bpmpi_auth', 'true');
             renderField('bpmpi_accesstoken', this.accessToken);
+            renderField('bpmpi_ordernumber', this.orderNumber);
             await bpmpi_load();
         },
 
@@ -123,7 +127,29 @@
         },
 
         getAuthenticateData: async function () {
-            await bpmpi_authenticate();
+            if (!this.isBpmpiEnabled()) {
+                return {
+                    bpmpiAuthFailureType: '', bpmpiAuthCavv: '', bpmpiAuthXid: '',
+                    bpmpiAuthEci: '', bpmpiAuthVersion: '', bpmpiAuthReferenceId: '',
+                };
+            }
+
+            await new Promise(function (resolve) {
+                // Registrar listener ANTES de chamar authenticate — mesmo padrão do checkout
+                // clássico (braspag-auth3ds20.js linha 115). O MPI lib dispara .change() via
+                // jQuery em .bpmpi_auth_failure_type após validate completar (sucesso ou erro).
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(document).one('change', '.bpmpi_auth_failure_type', resolve);
+                } else {
+                    var el = document.querySelector('.bpmpi_auth_failure_type');
+                    if (el) {
+                        el.addEventListener('change', resolve, { once: true });
+                    } else {
+                        resolve();
+                    }
+                }
+                bpmpi_authenticate();
+            });
 
             function fieldVal(cls) {
                 var el = document.querySelector('.' + cls);
