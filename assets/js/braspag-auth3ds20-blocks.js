@@ -122,43 +122,28 @@
             }
         },
 
-        getAuthenticateData: function () {
-            return new Promise(function (resolve) {
-                var timeout = window.setTimeout(function () {
-                    cleanup();
-                    resolve();
-                }, 30000);
+        getAuthenticateData: async function () {
+            await bpmpi_authenticate();
 
-                function cleanup() {
-                    window.clearTimeout(timeout);
-                    jQuery(document).off('change.bpmpi_blocks', '.bpmpi_auth_failure_type', onAuthChange);
-                }
+            function fieldVal(cls) {
+                var el = document.querySelector('.' + cls);
+                return el ? el.value : '';
+            }
 
-                function onAuthChange() {
-                    cleanup();
-                    resolve();
-                }
+            var data = {
+                bpmpiAuthFailureType: fieldVal('bpmpi_auth_failure_type'),
+                bpmpiAuthCavv:        fieldVal('bpmpi_auth_cavv'),
+                bpmpiAuthXid:         fieldVal('bpmpi_auth_xid'),
+                bpmpiAuthEci:         fieldVal('bpmpi_auth_eci'),
+                bpmpiAuthVersion:     fieldVal('bpmpi_auth_version'),
+                bpmpiAuthReferenceId: fieldVal('bpmpi_auth_reference_id'),
+            };
 
-                jQuery(document).on('change.bpmpi_blocks', '.bpmpi_auth_failure_type', onAuthChange);
-                bpmpi_authenticate();
-            }).then(function () {
-                function fieldVal(cls) {
-                    var el = document.querySelector('.' + cls);
-                    return el ? el.value : '';
-                }
-                var data = {
-                    bpmpiAuthFailureType: fieldVal('bpmpi_auth_failure_type'),
-                    bpmpiAuthCavv:        fieldVal('bpmpi_auth_cavv'),
-                    bpmpiAuthXid:         fieldVal('bpmpi_auth_xid'),
-                    bpmpiAuthEci:         fieldVal('bpmpi_auth_eci'),
-                    bpmpiAuthVersion:     fieldVal('bpmpi_auth_version'),
-                    bpmpiAuthReferenceId: fieldVal('bpmpi_auth_reference_id'),
-                };
-                if (braspag_auth3ds20_params.isTestEnvironment) {
-                    console.log('[bpmpi-blocks]', data);
-                }
-                return data;
-            });
+            if (braspag_auth3ds20_params.isTestEnvironment) {
+                console.log('[bpmpi-blocks]', data);
+            }
+
+            return data;
         },
     };
 
