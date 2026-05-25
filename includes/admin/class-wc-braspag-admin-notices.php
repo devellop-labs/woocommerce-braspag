@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
 	exit;
 }
 
@@ -34,7 +34,7 @@ class WC_Braspag_Admin_Notices
 
 	public function admin_notices()
 	{
-		if (!current_user_can('manage_woocommerce')) {
+		if (false === current_user_can('manage_woocommerce')) {
 			return;
 		}
 
@@ -97,11 +97,11 @@ class WC_Braspag_Admin_Notices
 		$show_wpver_notice = get_option('wc_braspag_show_wpver_notice');
 		$show_curl_notice = get_option('wc_braspag_show_curl_notice');
 		$options = get_option('woocommerce_braspag_settings');
-		$test_mode = (isset($options['test_mode']) && 'yes' === $options['test_mode']) ? true : false;
+		$test_mode = (true === isset($options['test_mode']) && 'yes' === $options['test_mode']) ? true : false;
 
 		if (isset($options['enabled']) && 'yes' === $options['enabled']) {
 
-			if (empty($show_style_notice)) {
+			if (true === empty($show_style_notice)) {
 				/* translators: 1) int version 2) int version */
 				$message = __('WooCommerce Braspag - We recently made changes to Braspag that may impact the appearance of your checkout.', 'woocommerce-braspag');
 
@@ -121,18 +121,18 @@ class WC_Braspag_Admin_Notices
 				}
 			}
 
-			if (empty($show_wcver_notice)) {
-				if (WC_Braspag_Helper::is_wc_lt(WC_BRASPAG_MIN_WC_VER)) {
+			if (true === empty($show_wcver_notice)) {
+				if (true === WC_Braspag_Helper::is_wc_lt(WC_BRASPAG_MIN_WC_VER)) {
 					/* translators: 1) int version 2) int version */
 					$message = __('WooCommerce Braspag - The minimum WooCommerce version required for this plugin is %1$s. You are running %2$s.', 'woocommerce-braspag');
 
-					$this->add_admin_notice('wcver', 'notice notice-warning', sprintf($message, WC_BRASPAG_MIN_WC_VER, defined('WC_VERSION') ? WC_VERSION : (WC()->version ?? get_option('woocommerce_version'))), true);
+					$this->add_admin_notice('wcver', 'notice notice-warning', sprintf($message, WC_BRASPAG_MIN_WC_VER, true === defined('WC_VERSION') ? WC_VERSION : (WC()->version ?? get_option('woocommerce_version'))), true);
 
 					return;
 				}
 			}
 
-			if (empty($show_wpver_notice)) {
+			if (true === empty($show_wpver_notice)) {
 				if (version_compare(WC_BRASPAG_WP_VERSION, WC_BRASPAG_MIN_WP_VER, '<')) {
 					/* translators: 1) int version 2) int version */
 					$message = __('Wordpress Braspag - The minimum Wordpress version required for this plugin is %1$s. You are running %2$s.', 'woocommerce-braspag');
@@ -144,14 +144,14 @@ class WC_Braspag_Admin_Notices
 			}
 
 			if (empty($show_curl_notice)) {
-				if (!function_exists('curl_init')) {
+				if (false === function_exists('curl_init')) {
 					$this->add_admin_notice('curl', 'notice notice-warning', __('WooCommerce Braspag - cURL is not installed.', 'woocommerce-braspag'), true);
 				}
 			}
 
 			if (empty($show_ssl_notice)) {
 
-				if (!wc_checkout_is_https()) {
+				if (false === wc_checkout_is_https()) {
 					/* translators: 1) link */
 					$this->add_admin_notice('ssl', 'notice notice-warning', sprintf(__('Braspag is enabled, but a SSL certificate is not detected. Your checkout may not be secure! Please ensure your server has a valid <a href="%1$s" target="_blank">SSL certificate</a>', 'woocommerce-braspag'), 'https://en.wikipedia.org/wiki/Transport_Layer_Security'), true);
 				}
@@ -191,12 +191,12 @@ class WC_Braspag_Admin_Notices
 	 */
 	public function hide_notices()
 	{
-		if (isset($_GET['wc-braspag-hide-notice']) && isset($_GET['_wc_braspag_notice_nonce'])) {
+		if (true === isset($_GET['wc-braspag-hide-notice']) && true === isset($_GET['_wc_braspag_notice_nonce'])) {
 			if (!wp_verify_nonce($_GET['_wc_braspag_notice_nonce'], 'wc_braspag_hide_notices_nonce')) {
 				wp_die(__('Action failed. Please refresh the page and retry.', 'woocommerce-braspag'));
 			}
 
-			if (!current_user_can('manage_woocommerce')) {
+			if (false === current_user_can('manage_woocommerce')) {
 				wp_die(__('Cheatin&#8217; huh?', 'woocommerce-braspag'));
 			}
 
@@ -245,7 +245,7 @@ class WC_Braspag_Admin_Notices
 	 */
 	public function get_setting_link()
 	{
-		$use_id_as_section = function_exists('WC') ? version_compare(WC()->version, '2.6', '>=') : false;
+		$use_id_as_section = true === function_exists('WC') ? version_compare(WC()->version, '2.6', '>=') : false;
 
 		$section_slug = $use_id_as_section ? 'braspag' : strtolower('WC_Gateway_Braspag');
 
