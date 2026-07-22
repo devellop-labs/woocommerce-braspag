@@ -763,7 +763,7 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                     "ZipCode" => $shipping_address['postcode'],
                     "FirstName" => $order->get_shipping_first_name(),
                     "LastName" => $order->get_shipping_last_name(),
-                    "ShippingMethod" => $order->get_payment_method(),
+                    "ShippingMethod" => $order->get_shipping_method(),
                     "Phone" => WC_Braspag_Helper::format_antifraud_phone($order->get_billing_phone())
                 ],
                 'ClearSale' === $this->get_antifraud_provider_name() ? [
