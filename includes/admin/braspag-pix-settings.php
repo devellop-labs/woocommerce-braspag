@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if (false === defined('ABSPATH')) {
     exit;
 }
 
@@ -47,6 +47,7 @@ return apply_filters(
                 "Cielo30" => "Pix Gateway -> Cielo30",
                 "Cielo2" => "Pix Gateway -> Cielo2",
                 "Bradesco2" => "Pix Gateway -> Bradesco",
+                "BancodoBrasil3" => "Pix Gateway -> Banco do Brasil",
                 "Simulado" => "Simulado"
             ]
         ),

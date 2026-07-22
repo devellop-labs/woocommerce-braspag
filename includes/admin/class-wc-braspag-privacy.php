@@ -15,7 +15,7 @@ class WC_Braspag_Privacy extends WC_Abstract_Privacy
 
 		$this->add_exporter('wc-gateway-braspag-order-data', __('WooCommerce Braspag Order Data', 'woocommerce-braspag'), array($this, 'order_data_exporter'));
 
-		if (function_exists('wcs_get_subscriptions')) {
+		if (true === function_exists('wcs_get_subscriptions')) {
 			$this->add_exporter('wc-gateway-braspag-subscriptions-data', __('WooCommerce Braspag Subscriptions Data', 'woocommerce-braspag'), array($this, 'subscriptions_data_exporter'));
 		}
 
@@ -54,7 +54,7 @@ class WC_Braspag_Privacy extends WC_Abstract_Privacy
 			}
 		}
 
-		if (!is_null($index)) {
+		if (false === is_null($index)) {
 			array_splice($settings, $index, 0, $insert_setting);
 		}
 
@@ -256,7 +256,7 @@ class WC_Braspag_Privacy extends WC_Abstract_Privacy
 		$items_removed = false;
 		$messages = array();
 
-		if (!empty($braspag_customer_id) || !empty($braspag_source_id)) {
+		if (false === empty($braspag_customer_id) || false === empty($braspag_source_id)) {
 			$items_removed = true;
 			delete_user_option($user->ID, '_braspag_customer_id');
 			delete_user_option($user->ID, '_braspag_source_id');

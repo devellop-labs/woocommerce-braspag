@@ -201,3 +201,11 @@
 .woocommerce-checkout #payment ul.payment_methods li>label {
     display: contents !important;
 }
+
+/*CHECKOUT BLOCKS*/
+.wc-braspag-blocks-card-form input#braspag_creditcard-card-number {
+    padding-left: 3rem;
+}
+.wc-braspag-blocks-card-form p.form-row > img {
+    margin-top: -2rem;
+}

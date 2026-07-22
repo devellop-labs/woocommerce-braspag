@@ -373,7 +373,6 @@
 
             if (liveCompany) {
                 liveCompany.setAttribute('aria-label', 'Razão Social');
-                liveCompany.required = isCompanyVisible;
                 liveCompany.setAttribute('data-braspag-pj-company', isCompanyVisible ? '1' : '0');
             }
 

@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH'))
+if (false === defined('ABSPATH'))
     exit;
 
 final class WC_Braspag_Blocks_Main extends WC_Braspag_Blocks_Abstract

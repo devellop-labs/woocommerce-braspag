@@ -125,7 +125,7 @@ VerifyCard.prototype = {
                         this.handleError(data[0]);
                     }
                     // Se for objeto, verificar diretamente os códigos
-                    else if (data.Status != 1) {    
+                    else if (data.Status !== 1) {
                         this.handleWarning(data);
                     } else {
                         // Lança um erro genérico caso não seja identificado
@@ -133,7 +133,7 @@ VerifyCard.prototype = {
                     }
                 } else {
                     console.log('payload:', data);
-                    if (data.Status != 1) {
+                    if (data.Status !== 1) {
                         this.handleWarning(data);
                     } else {
                         console.log('Resposta de sucesso:', data);
