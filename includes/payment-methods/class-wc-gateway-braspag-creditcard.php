@@ -751,20 +751,26 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "Country" => $billing_address['country'],
                 "ZipCode" => $billing_address['postcode']
             ],
-            "Shipping" => [
-                "Street" => $order->get_shipping_address_1(),
-                "Number" => $shipping_address['number'],
-                "Complement" => $shipping_address['address_2'],
-                "Neighborhood" => $shipping_address['neighborhood'],
-                "City" => $shipping_address['city'],
-                "State" => $shipping_address['state'],
-                "Country" => $shipping_address['country'],
-                "ZipCode" => $shipping_address['postcode'],
-                "FirstName" => $order->get_shipping_first_name(),
-                "LastName" => $order->get_shipping_last_name(),
-                "ShippingMethod" => $order->get_payment_method(),
-                "Phone" => preg_replace('/\D+/', '', $order->get_billing_phone())
-            ],
+            "Shipping" => array_merge(
+                [
+                    "Street" => $order->get_shipping_address_1(),
+                    "Number" => $shipping_address['number'],
+                    "Complement" => $shipping_address['address_2'],
+                    "Neighborhood" => $shipping_address['neighborhood'],
+                    "City" => $shipping_address['city'],
+                    "State" => $shipping_address['state'],
+                    "Country" => $shipping_address['country'],
+                    "ZipCode" => $shipping_address['postcode'],
+                    "FirstName" => $order->get_shipping_first_name(),
+                    "LastName" => $order->get_shipping_last_name(),
+                    "ShippingMethod" => $order->get_shipping_method(),
+                    "Phone" => WC_Braspag_Helper::format_antifraud_phone($order->get_billing_phone())
+                ],
+                'ClearSale' === $this->get_antifraud_provider_name() ? [
+                    "DocumentType" => $customer_identity_data['type'] ?? '',
+                    "DocumentNumber" => preg_replace('/\D+/', '', $customer_identity_data['value'] ?? '')
+                ] : []
+            ),
             "Customer" => [
                 "MerchantCustomerId" => $this->get_logged_in_customer_id(),
                 "FirstName" => $order->get_billing_first_name(),
@@ -817,6 +823,37 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
         }
 
         return $return_data;
+    }
+
+    /**
+     * Campos de Shipping exigidos apenas pelo ClearSale no endpoint
+     * combinado (v2/sales/, Payment.FraudAnalysis): Identity, IdentityType
+     * (1 = Pessoa Física, 2 = Pessoa Jurídica) e o endereço de entrega
+     * completo. Não fazem parte do schema do CyberSource, por isso ficam
+     * isolados aqui e só são mesclados ao Shipping quando o provedor é
+     * ClearSale (ver braspag_pagador_creditcard_payment_request_antifraud_builder).
+     *
+     * @param $order
+     * @param array $customer_identity_data
+     * @return array
+     */
+    public function get_clearsale_shipping_identity_and_address($order, $customer_identity_data)
+    {
+        $shipping_address = $order->get_address('shipping');
+
+        return [
+            "Identity" => preg_replace('/\D+/', '', $customer_identity_data['value'] ?? ''),
+            "IdentityType" => 'CNPJ' === ($customer_identity_data['type'] ?? '') ? '2' : '1',
+            "Street" => $order->get_shipping_address_1(),
+            "Number" => $shipping_address['number'],
+            "Complement" => $shipping_address['address_2'],
+            "Neighborhood" => $shipping_address['neighborhood'],
+            "City" => $shipping_address['city'],
+            "State" => $shipping_address['state'],
+            "Country" => $shipping_address['country'],
+            "ZipCode" => $shipping_address['postcode'],
+            "Email" => $order->get_billing_email()
+        ];
     }
 
     /**
@@ -908,12 +945,16 @@ class WC_Gateway_Braspag_CreditCard extends WC_Gateway_Braspag
                 "Items" => $fraudAnalysCartItems
             ],
             "MerchantDefinedFields" => $merchant_defined_fields,
-            "Shipping" => [
-                "Addressee" => $order->get_formatted_billing_full_name(),
-                "Method" => "LowCost",
-                "Phone" => $this->format_phone_for_antifraud($order->get_billing_phone()),
-                "DocumentNumber" => $customer_identity_data['value']
-            ]
+            "Shipping" => array_merge(
+                [
+                    "Addressee" => $order->get_formatted_billing_full_name(),
+                    "Method" => "LowCost",
+                    "Phone" => WC_Braspag_Helper::format_antifraud_phone($order->get_billing_phone())
+                ],
+                'ClearSale' === $this->get_antifraud_provider_name()
+                    ? $this->get_clearsale_shipping_identity_and_address($order, $customer_identity_data)
+                    : []
+            )
         ];
 
         if ('ClearSale' === $this->get_antifraud_provider_name() && !empty($this->antifraud_clearsale_app_key)) {
