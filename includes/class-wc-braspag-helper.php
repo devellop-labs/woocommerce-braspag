@@ -126,4 +126,31 @@ class WC_Braspag_Helper
 
 		return false;
 	}
+
+	/**
+	 * Normaliza telefone (DDD + número) para os campos Shipping.Phone /
+	 * Customer.Phone da análise de fraude Braspag/Cielo. Retorna apenas
+	 * dígitos; se o total de dígitos não corresponder a um telefone
+	 * brasileiro válido (10 ou 11 dígitos, ou 12/13 com DDI 55), retorna
+	 * string vazia para não enviar um valor com formato inválido.
+	 *
+	 * @param string $phone
+	 * @return string
+	 */
+	public static function format_antifraud_phone($phone)
+	{
+		$digits = preg_replace('/\D+/', '', (string) $phone);
+
+		if (strlen($digits) === 12 || strlen($digits) === 13) {
+			if (substr($digits, 0, 2) === '55') {
+				$digits = substr($digits, 2);
+			}
+		}
+
+		if (strlen($digits) !== 10 && strlen($digits) !== 11) {
+			return '';
+		}
+
+		return $digits;
+	}
 }

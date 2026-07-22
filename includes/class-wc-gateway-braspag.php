@@ -852,7 +852,7 @@ JS;
         return [
             "Name" => $order->get_formatted_billing_full_name(),
             "Email" => $order->get_billing_email(),
-            "Phone" => preg_replace('/\D+/', '', $order->get_billing_phone()),
+            "Phone" => WC_Braspag_Helper::format_antifraud_phone($order->get_billing_phone()),
             "Identity" => $identity,
             "IdentityType" => $identityType,
             "Address" => [
