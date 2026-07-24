@@ -136,4 +136,11 @@
 * Fixed webhook handling for PIX orders when the WC HPOS was enabled.
 
 = 2.3.5.44 - 2026-06-23 =
-* Fixed webhook handling for PIX orders when the WC HPOS was enabled. 
+* Fixed webhook handling for PIX orders when the WC HPOS was enabled.
+
+= 2.3.5.45 - 2026-06-23 =
+* Fixed webhook get Acquire Transaction ID
+
+= 2.3.5.46 - 2026-07-24 =
+* Remove headers for validations in webhook
+* Update compatibility and resources
