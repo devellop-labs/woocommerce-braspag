@@ -14,7 +14,7 @@
  * Author: Braspag
  * Author URI: https://braspag.com.br/
  *
- * Version: 2.3.5.44
+ * Version: 2.3.5.46
  * Requires at least: 5.3.2
  * Tested up to: 6.8.2
  * Requires PHP: 7.4
