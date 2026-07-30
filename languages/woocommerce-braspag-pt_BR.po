@@ -654,15 +654,15 @@ msgstr ""
 
 #: includes/admin/braspag-settings.php:303
 msgid "Authentication 3DS 2.2"
-msgstr ""
+msgstr "Autenticação 3DS 2.2"
 
 #: includes/admin/braspag-settings.php:310
 msgid "Get your Authentication 3DS 2.2 OAuth Client ID from Braspag Support."
-msgstr ""
+msgstr "Obtenha seu OAuth Client ID de Autenticação 3DS 2.2 no Suporte Braspag."
 
 #: includes/admin/braspag-settings.php:317
 msgid "Get your Authentication 3DS 2.2 Client Secret from Braspag Support."
-msgstr ""
+msgstr "Obtenha seu Client Secret de Autenticação 3DS 2.2 no Suporte Braspag."
 
 #. translators: 1) int version 2) int version
 #: includes/admin/class-wc-braspag-admin-notices.php:106
