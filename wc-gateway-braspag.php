@@ -114,7 +114,7 @@ function wc_braspag_init()
 	 * Required minimums and constants
 	 */
 	global $wp_version;
-	$bp_version = '2.3.5.44';
+	$bp_version = '2.3.5.45';
 	$min_php_ver = '5.6.0';
 	$min_wc_ver = '4.0.0';
 	$min_wp_ver = '5.3.2';
