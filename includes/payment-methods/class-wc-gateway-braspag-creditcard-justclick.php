@@ -50,7 +50,7 @@ class WC_Gateway_Braspag_CreditCard_JustClick extends WC_Gateway_Braspag_CreditC
 
         $this->soft_descriptor = substr($this->get_option('SoftDescriptor'), 0, 13);
 
-        $this->enabled = $braspag_enabled == 'yes' ? $this->get_option('enabled') : 'no';
+        $this->enabled = $braspag_enabled === 'yes' ? $this->get_option('enabled') : 'no';
         $this->test_mode = $test_mode == 'yes';
         $this->maximum_installments = $this->get_option('maximum_installments');
         $this->minimum_amount_of_installment = $this->get_option('minimum_amount_of_installment');
@@ -101,7 +101,7 @@ class WC_Gateway_Braspag_CreditCard_JustClick extends WC_Gateway_Braspag_CreditC
 
     public function display_order_creditcard_data($order)
     {
-        if ($order->get_payment_method() != 'braspag_creditcard_justclick') {
+        if ($order->get_payment_method() !== 'braspag_creditcard_justclick') {
             return null;
         }
 
@@ -227,7 +227,7 @@ class WC_Gateway_Braspag_CreditCard_JustClick extends WC_Gateway_Braspag_CreditC
         $fields = wp_parse_args($fields, apply_filters('woocommerce_credit_card_form_fields', $default_fields, $this->id));
         ?>
 
-                        <noscript><iframe src="<?php echo "https://h.online-metrix.net/fp/tags.js?org_id={$this->antifraud_finger_print_org_id}&session_id={$this->antifraud_finger_print_session_id}" ?>"></iframe></noscript>
+                        <?php echo $this->get_antifraud_noscript_markup(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
                         <fieldset id="wc-<?php echo esc_attr($this->id); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
                             <?php do_action('woocommerce_credit_card_form_start', $this->id); ?>

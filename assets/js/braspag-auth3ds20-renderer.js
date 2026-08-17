@@ -18,7 +18,7 @@ BpmpiRenderer.prototype = {
   
   createInputHiddenElement: function(appendToElement, elementName, elementClass, value) {
     
-    if (elementName != '' && appendToElement.find("input[name='"+elementName+"']").length == 0) {
+    if (elementName !== '' && appendToElement.find("input[name='"+elementName+"']").length === 0) {
       appendToElement.append(
         jQuery('<input>')
           .attr('type', 'hidden')
@@ -28,7 +28,7 @@ BpmpiRenderer.prototype = {
       
       this.renderBpmpiData(elementClass, false, value);
       
-    } else if (elementClass != '' && appendToElement.find("input[class='"+elementClass+"']").length == 0) {
+    } else if (elementClass !== '' && appendToElement.find("input[class='"+elementClass+"']").length === 0) {
       
       appendToElement.append(
         jQuery('<input>')
