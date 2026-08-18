@@ -1,5 +1,5 @@
 <?php
-if (false === defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
 	exit;
 }
 
@@ -14,7 +14,7 @@ class WC_Braspag_Customer
 
 	public function __construct($user_id = 0)
 	{
-		if (0 !== $user_id) {
+		if ($user_id) {
 			$this->set_user_id($user_id);
 			$this->set_id($this->get_id_from_meta($user_id));
 		}

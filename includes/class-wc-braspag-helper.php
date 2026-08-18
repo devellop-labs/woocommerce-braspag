@@ -118,13 +118,13 @@ class WC_Braspag_Helper
 		}
 
 		$order = self::find_order_by_transaction_id($charge_id);
-		if (FALSE !== $order) {
+		if ($order) {
 			return $order;
 		}
 
 		foreach ($extra_meta as $meta_key) {
 			$order = self::find_order_by_meta_key($meta_key, $charge_id);
-			if (FALSE !== $order) {
+			if ($order) {
 				return $order;
 			}
 		}
@@ -134,7 +134,7 @@ class WC_Braspag_Helper
 
 	private static function find_order_by_transaction_id(string $charge_id)
 	{
-		if (FALSE === function_exists('wc_get_orders')) {
+		if (!function_exists('wc_get_orders')) {
 			return false;
 		}
 
@@ -147,7 +147,7 @@ class WC_Braspag_Helper
 
 	private static function find_order_by_meta_key(string $meta_key, string $charge_id)
 	{
-		if (FALSE === function_exists('wc_get_orders')) {
+		if (!function_exists('wc_get_orders')) {
 			return false;
 		}
 
@@ -169,7 +169,7 @@ class WC_Braspag_Helper
 			$charge_id
 		));
 
-		if (NULL !== $order_id) {
+		if ($order_id) {
 			return wc_get_order($order_id);
 		}
 
@@ -180,7 +180,7 @@ class WC_Braspag_Helper
 				$charge_id
 			));
 
-			if (NULL !== $order_id) {
+			if ($order_id) {
 				return wc_get_order($order_id);
 			}
 		}
@@ -190,36 +190,9 @@ class WC_Braspag_Helper
 
 	private static function extract_order(array $orders)
 	{
-		if (FALSE === empty($orders) && $orders[0] instanceof WC_Order) {
+		if (!empty($orders) && $orders[0] instanceof WC_Order) {
 			return $orders[0];
 		}
 		return false;
-	}
-
-	/**
-	 * Normaliza telefone (DDD + número) para os campos Shipping.Phone /
-	 * Customer.Phone da análise de fraude Braspag/Cielo. Retorna apenas
-	 * dígitos; se o total de dígitos não corresponder a um telefone
-	 * brasileiro válido (10 ou 11 dígitos, ou 12/13 com DDI 55), retorna
-	 * string vazia para não enviar um valor com formato inválido.
-	 *
-	 * @param string $phone
-	 * @return string
-	 */
-	public static function format_antifraud_phone($phone)
-	{
-		$digits = preg_replace('/\D+/', '', (string) $phone);
-
-		if (strlen($digits) === 12 || strlen($digits) === 13) {
-			if (substr($digits, 0, 2) === '55') {
-				$digits = substr($digits, 2);
-			}
-		}
-
-		if (strlen($digits) !== 10 && strlen($digits) !== 11) {
-			return '';
-		}
-
-		return $digits;
 	}
 }

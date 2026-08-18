@@ -99,13 +99,13 @@ function wc_braspag_missing_extra_checkout_fields_notice()
 add_action('plugins_loaded', 'wc_braspag_init');
 function wc_braspag_init()
 {
-	if (false === class_exists('WooCommerce')) {
+	if (!class_exists('WooCommerce')) {
 		add_action('admin_notices', 'wc_braspag_missing_wc_notice');
 		return;
 	}
 
 	// Verifica Extra Checkout Fields for Brazil.
-	if (false === class_exists('Extra_Checkout_Fields_For_Brazil')) {
+	if (!class_exists('Extra_Checkout_Fields_For_Brazil')) {
 		add_action('admin_notices', 'wc_braspag_missing_extra_checkout_fields_notice');
 		return;
 	}
@@ -164,7 +164,7 @@ function wc_braspag_init()
 	define('WC_BRASPAG_MAIN_FILE', __FILE__);
 	define('WC_BRASPAG_PLUGIN_URL', untrailingslashit(plugins_url(basename(plugin_dir_path(__FILE__)), basename(__FILE__))));
 	define('WC_BRASPAG_PLUGIN_PATH', untrailingslashit(plugin_dir_path(__FILE__)));
-
+  
 	add_action(
 		'admin_notices',
 		function () {
@@ -192,24 +192,21 @@ function wc_braspag_init()
 				],
 			];
 
-			$allPlugins = true === function_exists('get_plugins') ? get_plugins() : [];
+			$allPlugins = function_exists('get_plugins') ? get_plugins() : [];
 
 			foreach ($requiredPlugins as $pluginName => $pluginData) {
-				// Verifica se está instalado
-				$isInstalled = !empty($allPlugins[$pluginData['file']]);
-
-				// Verifica se está ativo
-				$isActive = is_plugin_active($pluginData['file']);
-
+				$isInstalled = !empty($allPlugins[$pluginData['file']]); // Verifica se está instalado
+				$isActive = is_plugin_active($pluginData['file']); // Verifica se está ativo
+	
 				// Define a ação e o link com base no estado do plugin
-				if (false === $isInstalled && true === $currentUserCanInstallPlugins) {
+				if (!$isInstalled && $currentUserCanInstallPlugins) {
 					// Plugin não está instalado
 					$action = 'install';
 					$link = wp_nonce_url(
 						self_admin_url("update.php?action=install-plugin&plugin={$pluginData['slug']}"),
 						"install-plugin_{$pluginData['slug']}"
 					);
-				} elseif (false === $isActive && true === $isInstalled && true === $currentUserCanInstallPlugins) {
+				} elseif (!$isActive && $isInstalled && $currentUserCanInstallPlugins) {
 					// Plugin está instalado, mas não está ativo
 					$action = 'activate';
 					$link = wp_nonce_url(
@@ -293,7 +290,7 @@ function wc_braspag_init()
 		 */
 		public function init(): void
 		{
-			if (true === is_admin()) {
+			if (is_admin()) {
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-privacy.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-customer-seller-attributes.php';
 				require_once WC_BRASPAG_PLUGIN_PATH . '/includes/admin/class-wc-braspag-admin-notices.php';
@@ -308,7 +305,6 @@ function wc_braspag_init()
 			include_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-risk-api.php';
 			include_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-oauth-api.php';
 			include_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-mpi-api.php';
-			include_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-zero-auth-api.php';
 			include_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-pagador-api-query.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/abstracts/abstract-wc-braspag-payment-gateway.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-webhook-handler.php';
@@ -320,15 +316,6 @@ function wc_braspag_init()
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/payment-methods/class-wc-gateway-braspag-pix.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-order-handler.php';
 			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/class-wc-braspag-customer.php';
-
-			// Load Checkout Blocks
-			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/blocks/class-wc-braspag-blocks.php';
-
-			// Load Brazil Fields Compatibility
-			require_once WC_BRASPAG_PLUGIN_PATH . '/includes/blocks/bridge/class-wc-braspag-blocks-ecfb-bridge.php';
-			
-			// Initialize Brazil Fields Compatibility
-			WC_Braspag_Blocks_ECFB_Bridge::init();
 
 			add_filter('woocommerce_payment_gateways', array($this, 'add_gateways'));
 			add_filter('plugin_action_links_' . plugin_basename(WC_BRASPAG_MAIN_FILE), array($this, 'plugin_action_links'));

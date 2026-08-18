@@ -1,5 +1,5 @@
 <?php
-if (false === defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 

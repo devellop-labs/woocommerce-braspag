@@ -1,5 +1,5 @@
 <?php
-if (false === defined('ABSPATH')) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
@@ -88,7 +88,7 @@ class WC_Braspag_Pagador_API_Query
             $requestOptions
         );
 
-        if (true === is_wp_error($response)) {
+        if (is_wp_error($response) || empty($response['body'])) {
             WC_Braspag_Logger::log(
                 'Error Response: ' . print_r($response, true) . PHP_EOL . PHP_EOL . 'Failed request: ' . print_r(
                     array(
@@ -102,7 +102,7 @@ class WC_Braspag_Pagador_API_Query
             throw new WC_Braspag_Exception(print_r($response, true), __('There was a problem connecting to the Braspag API endpoint.', 'woocommerce-braspag'));
         }
 
-        if (true === $with_headers) {
+        if ($with_headers) {
             return array(
                 'headers' => wp_remote_retrieve_headers($response),
                 'body' => json_decode($response['body']),
@@ -119,23 +119,23 @@ class WC_Braspag_Pagador_API_Query
     public static function prepare_response($response)
     {
         $response_data = [];
-        if (true === isset($response['body'])) {
+        if (isset($response['body'])) {
 
             $response_body = $response['body'];
 
-            if (true === is_string($response_body)) {
+            if (is_string($response_body)) {
                 $response_body = json_decode($response_body);
             }
 
             $response_data['body'] = $response_body;
         }
 
-        if (true === isset($response['response'])) {
+        if (isset($response['response'])) {
             $response_data['status'] = $response['response']['code'];
             $response_data['message'] = $response['response']['message'];
         }
 
-        if (!in_array((int) $response_data['status'], [200, 201], true)) {
+        if ($response_data['status'] != '200' && $response_data['status'] != '201') {
             $response_data['errors'] = $response_data['body'];
             $response_data['body'] = null;
         }
