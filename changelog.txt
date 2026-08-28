@@ -177,3 +177,11 @@
 * Fix "Invalid Access Token" (401) on 3DS init/enroll: load MPI vendor script in footer instead of head, ensuring the access-token DOM field exists before the library self-initializes
 * Cache MPI auth token per checkout session (WC session) instead of per PHP request, avoiding duplicate token generation on order-review refresh
 * Add client-side logger capturing MPI/3DS console events (console.log/error/warn) into the plugin's internal debug log
+
+= 2.3.6.4 (BETA) - 2026-08-27 =
+* Fix "Invalid Access Token" (401) on 3DS init/enroll: load MPI vendor script in footer instead of head, ensuring the access-token DOM field exists before the library self-initializes
+* Cache MPI auth token per checkout session (WC session) instead of per PHP request, avoiding duplicate token generation on order-review refresh
+* Add client-side logger capturing MPI/3DS console events (console.log/error/warn) into the plugin's internal debug log
+* update validation function is_checkout_blocks
+* JS script dependencies
+* Update validation Auth SOP
