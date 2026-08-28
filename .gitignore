@@ -1,0 +1,12 @@
+vendor/
+test-result/
+node_modules/
+bin/
+.omc
+.codex
+.opencode
+.phpunit.result.cache
+.agents
+.captainhook
+.claude
+.github

@@ -490,8 +490,13 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
             "Xid" => $checkout->get_value('bpmpi_auth_xid'),
             "Eci" => $checkout->get_value('bpmpi_auth_eci'),
             "Version" => $checkout->get_value('bpmpi_auth_version'),
-            "ReferenceID" => $checkout->get_value('bpmpi_auth_reference_id')
+            "ReferenceId" => $checkout->get_value('bpmpi_auth_reference_id'),
+            "DataOnly" => 'true' === (string) $checkout->get_value('bpmpi_auth_notifyonly')
         ];
+
+        // TEMP DEBUG (remover apos investigacao do caso ExternalAuthentication nulo): captura o que
+        // realmente chegou no POST do checkout para os campos MPI, para comparar com o console do navegador.
+        WC_Braspag_Logger::log('DEBUG MPI DebitCard - order ' . $order->get_id() . ' - failure_type=' . $checkout->get_value('bpmpi_auth_failure_type') . ' - raw=' . wp_json_encode($payment_data_auth3ds20_data));
 
         $payment_data_external_authentication_data = apply_filters(
             'wc_gateway_braspag_pagador_request_debitcard_payment_auth3ds20_builder',
