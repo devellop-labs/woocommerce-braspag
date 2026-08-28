@@ -14,7 +14,7 @@
  * Author: Braspag
  * Author URI: https://braspag.com.br/
  *
- * Version: 2.3.6.3 (BETA)
+ * Version: 2.3.6.4 (BETA)
  * Requires at least: 5.3.2
  * Tested up to: 6.9.5
  * Requires PHP: 7.4
@@ -132,7 +132,7 @@ function wc_braspag_init()
 	 * Required minimums and constants
 	 */
 	global $wp_version;
-	$bp_version = '2.3.6.3';
+	$bp_version = '2.3.6.4';
 	$min_php_ver = '5.6.0';
 	$min_wc_ver = '4.0.0';
 	$min_wp_ver = '5.3.2';
