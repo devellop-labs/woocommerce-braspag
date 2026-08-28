@@ -207,7 +207,25 @@ BraspagAuth3ds20.prototype = {
         // Ordem documentada pela Cielo: 3DS autentica primeiro (dados acima já
         // preenchidos em ExternalAuthentication), SOP tokeniza o cartão depois
         // e só então o form é enviado — com os dois conjuntos de dados juntos.
-        if (self.isSopEnabled && typeof sop !== 'undefined' && sop.isSopEnabled()) {
+        if (self.isSopEnabled) {
+          // SOP está habilitado nas configurações: o cartão SÓ pode ser enviado
+          // como PaymentToken/CardToken tokenizado pelo SOP. Se o objeto `sop`
+          // não estiver disponível (ex.: braspag-authsop.js não carregou porque
+          // Prototype.js veio depois dele), submeter agora mandaria a transação
+          // sem dado de cartão e a Braspag responderia 127. Aborta o submit e
+          // deixa o erro visível em vez de falhar silenciosamente.
+          if (typeof sop === 'undefined' || typeof sop.isSopEnabled !== 'function' || !sop.isSopEnabled()) {
+            console.error('[BP-DEBUG] SOP habilitado mas indisponível — submit abortado para evitar transação sem cartão (Braspag 127).', Date.now());
+            paymentForm.removeClass('processing').unblock();
+            jQuery(document.body).trigger('checkout_error');
+            jQuery('.woocommerce-notices-wrapper:first').html(
+              '<ul class="woocommerce-error" role="alert"><li>' +
+              'Não foi possível preparar os dados do cartão. Recarregue a página e tente novamente.' +
+              '</li></ul>'
+            );
+            return false;
+          }
+
           // TEMP DEBUG (remover apos investigacao do caso ExternalAuthentication nulo)
           console.log('[BP-DEBUG] 3DS concluido, acionando SOP antes do submit', Date.now());
 

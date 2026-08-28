@@ -1,3 +1,12 @@
+// Prototype.js precisa estar carregado antes deste arquivo (dependência
+// declarada em wp_register_script('wc-braspag-authsop', ...)). Se por algum
+// motivo não estiver, falha de forma visível em vez de estourar um
+// ReferenceError silencioso que deixaria o global `sop` indefinido e faria
+// o checkout enviar a transação sem dado de cartão (Braspag 127).
+if (typeof Class === 'undefined' || typeof Class.create !== 'function') {
+  console.error('[SOP] Prototype.js não carregado — SOP indisponível nesta página.');
+}
+
 var Sop = Class.create();
 
 Sop.prototype = {

@@ -201,6 +201,40 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
     }
 
     /**
+     * Registra no log quais funcionalidades do meio de pagamento estao ligadas/desligadas.
+     *
+     * Para o cartao de debito apenas o 3DS e um recurso configuravel. SOP, Antifraude,
+     * VerifyCard, BinQuery e Card+CardToken nao se aplicam a este meio de pagamento.
+     *
+     * @param int $order_id
+     * @return void
+     */
+    protected function log_feature_flags($order_id)
+    {
+        $on_off = static function ($value) {
+            return ('yes' === $value || true === $value || '1' === $value || 1 === $value) ? 'enabled' : 'disabled';
+        };
+
+        $flags = array(
+            'SOP'            => 'n/a',
+            'Antifraude'     => 'n/a',
+            'VerifyCard'     => 'n/a',
+            '3DS'            => $on_off($this->auth3ds20_mpi_is_active),
+            'BinQuery'       => 'n/a',
+            'Card+CardToken' => 'n/a',
+        );
+
+        $parts = array();
+        foreach ($flags as $feature => $state) {
+            $parts[] = "$feature: $state";
+        }
+
+        WC_Braspag_Logger::log(
+            "Info: Feature flags for order $order_id -> " . implode(' | ', $parts)
+        );
+    }
+
+    /**
      * @param int $order_id
      * @param bool $retry
      * @param bool $previous_error
@@ -223,6 +257,8 @@ class WC_Gateway_Braspag_DebitCard extends WC_Gateway_Braspag
             }
 
             WC_Braspag_Logger::log("Info: Begin processing payment for order $order_id for the amount of {$order->get_total()}");
+
+            $this->log_feature_flags($order_id);
 
             $request_builder = $this->braspag_pagador_request_builder($this->id, $order, $default_request_params);
 
