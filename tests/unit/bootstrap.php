@@ -272,3 +272,4 @@ if (!class_exists('WC_Braspag_Helper')) {
 require_once dirname(__DIR__, 2) . '/includes/class-wc-braspag-exception.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wc-braspag-logger.php';
 require_once dirname(__DIR__, 2) . '/includes/class-wc-braspag-mpi-v3-client.php';
+require_once dirname(__DIR__, 2) . '/includes/class-wc-braspag-auth3ds-v3-gate.php';
