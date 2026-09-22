@@ -603,6 +603,108 @@ class WC_Gateway_Braspag extends WC_Braspag_Payment_Gateway
         ) {
             update_option('wc_braspag_show_changed_keys_notice', 'yes');
         }
+
+        // 3DS e SilentOrderPost (SOP) são mutuamente exclusivos: o MPI v3 não
+        // funciona em conjunto com o SOP. Este método é compartilhado pelas
+        // três telas de settings (geral, cartão de crédito e cartão de
+        // débito), então a regra correta depende de qual delas está sendo
+        // salva no momento ($this->id).
+        $this->enforce_sop_3ds_mutual_exclusivity();
+    }
+
+    /**
+     * Garante, no momento do save (independente de UI/JS), que SOP e 3DS
+     * nunca fiquem ambos habilitados ao mesmo tempo. Esta é a garantia real
+     * (server-side) do bloqueio; o JS de admin é apenas UX.
+     *
+     * @return void
+     */
+    protected function enforce_sop_3ds_mutual_exclusivity()
+    {
+        if ('braspag' === $this->id) {
+            $this->prevent_sop_enabled_with_active_3ds();
+            return;
+        }
+
+        if (in_array($this->id, array('braspag_creditcard', 'braspag_debitcard'), true)) {
+            $this->prevent_3ds_enabled_with_active_sop();
+        }
+    }
+
+    /**
+     * Chamado ao salvar a tela geral (braspag_settings). Se o usuário tentou
+     * habilitar o SOP enquanto o 3DS (crédito ou débito) já está ativo,
+     * força o SOP de volta para 'no' e registra um erro no admin.
+     *
+     * @return void
+     */
+    protected function prevent_sop_enabled_with_active_3ds()
+    {
+        if ('yes' !== $this->get_option('silentpost_enabled')) {
+            return;
+        }
+
+        if (!$this->is_any_auth3ds20_active()) {
+            return;
+        }
+
+        $this->update_option('silentpost_enabled', 'no');
+
+        if (class_exists('WC_Admin_Settings')) {
+            WC_Admin_Settings::add_error(
+                __('O SilentOrderPost não pôde ser habilitado porque o 3DS está ativo (Cartão de Crédito ou Débito). O 3DS não funciona em conjunto com o SilentOrderPost — desative o 3DS antes de habilitar o SilentOrderPost, ou desative o SilentOrderPost antes de habilitar o 3DS.', 'woocommerce-braspag')
+            );
+        }
+    }
+
+    /**
+     * Chamado ao salvar a tela de Cartão de Crédito ou Cartão de Débito. Se
+     * o usuário tentou habilitar o 3DS enquanto o SOP já está ativo, força o
+     * 3DS de volta para 'no' e registra um erro no admin.
+     *
+     * @return void
+     */
+    protected function prevent_3ds_enabled_with_active_sop()
+    {
+        if ('yes' !== $this->get_option('auth3ds20_mpi_is_active')) {
+            return;
+        }
+
+        if ('yes' !== $this->get_silentpost_enabled_option()) {
+            return;
+        }
+
+        $this->update_option('auth3ds20_mpi_is_active', 'no');
+
+        if (class_exists('WC_Admin_Settings')) {
+            WC_Admin_Settings::add_error(
+                __('O 3DS não pôde ser habilitado porque o SilentOrderPost está ativo. O 3DS não funciona em conjunto com o SilentOrderPost — desative o SilentOrderPost antes de habilitar o 3DS, ou desative o 3DS antes de habilitar o SilentOrderPost.', 'woocommerce-braspag')
+            );
+        }
+    }
+
+    /**
+     * @return bool True se o 3DS está ativo no cartão de crédito ou no cartão de débito.
+     */
+    protected function is_any_auth3ds20_active()
+    {
+        $credit_settings = get_option('woocommerce_braspag_creditcard_settings', array());
+        $debit_settings = get_option('woocommerce_braspag_debitcard_settings', array());
+
+        $credit_active = isset($credit_settings['auth3ds20_mpi_is_active']) && 'yes' === $credit_settings['auth3ds20_mpi_is_active'];
+        $debit_active = isset($debit_settings['auth3ds20_mpi_is_active']) && 'yes' === $debit_settings['auth3ds20_mpi_is_active'];
+
+        return $credit_active || $debit_active;
+    }
+
+    /**
+     * @return string O valor salvo de silentpost_enabled na tela geral (braspag).
+     */
+    protected function get_silentpost_enabled_option()
+    {
+        $general_settings = get_option('woocommerce_braspag_settings', array());
+
+        return isset($general_settings['silentpost_enabled']) ? $general_settings['silentpost_enabled'] : 'no';
     }
 
     /**
