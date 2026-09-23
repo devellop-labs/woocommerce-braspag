@@ -30,6 +30,12 @@ class WC_Braspag_Mpi_V3_Ajax
     const ACTION_VALIDATE = 'braspag_mpi_v3_validate';
     const NONCE_ACTION = 'braspag_mpi_v3_nonce';
 
+    /**
+     * Chave de sessão WC usada para persistir o orderNumber único da
+     * tentativa de checkout atual (ver `get_or_create_order_number()`).
+     */
+    const SESSION_ORDER_NUMBER_KEY = 'braspag_mpi_v3_order_number';
+
     public static function init()
     {
         add_action('wp_ajax_' . self::ACTION_INIT, array(__CLASS__, 'handle_init'));
@@ -62,10 +68,48 @@ class WC_Braspag_Mpi_V3_Ajax
     }
 
     /**
+     * A Cielo bloqueia chamadas repetidas de `3ds/init` com o mesmo
+     * `orderNumber` (HTTP 409 "sessão já existe para esse pedido") — usar
+     * `WC()->cart->get_cart_hash()` (estável entre recarregamentos de
+     * página enquanto o carrinho não muda) causava 409 a cada nova
+     * tentativa/reload do checkout.
+     *
+     * Gera um UUID novo (usado por `handle_init()`, que só deveria rodar
+     * uma vez por carregamento de página — ver `startSession()` no JS) e
+     * persiste na sessão do WC.
+     *
+     * @return string
+     */
+    protected static function generate_order_number()
+    {
+        $order_number = wp_generate_uuid4();
+
+        if (WC()->session) {
+            WC()->session->set(self::SESSION_ORDER_NUMBER_KEY, $order_number);
+        }
+
+        return $order_number;
+    }
+
+    /**
+     * Lê o `orderNumber` gerado por `handle_init()` para esta tentativa de
+     * checkout — `handle_enroll()`/`handle_validate()` precisam usar
+     * exatamente o mesmo valor (a Cielo correlaciona as chamadas por
+     * `orderNumber`, não pelo `referenceId`).
+     *
+     * @return string
+     */
+    protected static function get_order_number()
+    {
+        return WC()->session ? (string) WC()->session->get(self::SESSION_ORDER_NUMBER_KEY) : '';
+    }
+
+    /**
      * POST /wp-admin/admin-ajax.php?action=braspag_mpi_v3_init
      *
-     * Chama `WC_Braspag_Mpi_V3_Client::init()` para o pedido/carrinho atual e
-     * devolve `referenceId`+`token` para o JS inicializar `MPI.init()`.
+     * Chama `WC_Braspag_Mpi_V3_Client::init()` para a tentativa de checkout
+     * atual e devolve `referenceId`+`token` para o JS inicializar
+     * `MPI.init()`.
      */
     public static function handle_init()
     {
@@ -76,7 +120,7 @@ class WC_Braspag_Mpi_V3_Ajax
         }
 
         try {
-            $order_number = WC()->cart->get_cart_hash();
+            $order_number = self::generate_order_number();
             $settings = self::get_mpi_settings();
 
             $response = WC_Braspag_Mpi_V3_Client::init($order_number, $settings, array(
@@ -138,13 +182,19 @@ class WC_Braspag_Mpi_V3_Ajax
                 wp_send_json_error(array('message' => __('Missing card data.', 'woocommerce-braspag')), 400);
             }
 
+            $order_number = self::get_order_number();
+
+            if ('' === $order_number) {
+                wp_send_json_error(array('message' => __('3DS session expired, please try again.', 'woocommerce-braspag')), 400);
+            }
+
             $cart = WC()->cart;
             $customer = WC()->customer;
             $settings = self::get_mpi_settings();
 
             $payload = array(
                 'referenceId' => $reference_id,
-                'orderNumber' => $cart->get_cart_hash(),
+                'orderNumber' => $order_number,
                 'currency' => WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ALPHA,
                 'totalAmount' => (int) round($cart->get_total('edit') * 100),
                 'billTo' => self::build_bill_to($customer),
@@ -200,12 +250,18 @@ class WC_Braspag_Mpi_V3_Ajax
             wp_send_json_error(array('message' => __('Missing validation data.', 'woocommerce-braspag')), 400);
         }
 
+        $order_number = self::get_order_number();
+
+        if ('' === $order_number) {
+            wp_send_json_error(array('message' => __('3DS session expired, please try again.', 'woocommerce-braspag')), 400);
+        }
+
         try {
             $cart = WC()->cart;
             $settings = self::get_mpi_settings();
 
             $payload = array(
-                'orderNumber' => $cart->get_cart_hash(),
+                'orderNumber' => $order_number,
                 'currency' => WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ALPHA,
                 'totalAmount' => (int) round($cart->get_total('edit') * 100),
                 'transactionId' => $transaction_id,
