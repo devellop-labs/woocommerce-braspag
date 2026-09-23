@@ -37,6 +37,14 @@ class WC_Braspag_Mpi_V3_Client
     const TOKEN_TTL = 18 * MINUTE_IN_SECONDS;
 
     /**
+     * Código ISO 4217 numérico do Real (BRL) — o MPI v3 exige o código
+     * numérico (não o alfabético "BRL") em `3ds/init` e `3ds/enroll`;
+     * enviar "BRL" resulta em `{"Code":"Currency","Message":"Invalid
+     * currency code"}`.
+     */
+    const CURRENCY_BRL_ISO = '986';
+
+    /**
      * Chaves que nunca podem aparecer em texto puro em log — cobre
      * credenciais OAuth, o access_token em si e dados de cartão.
      *

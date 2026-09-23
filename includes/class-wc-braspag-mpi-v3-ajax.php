@@ -11,9 +11,11 @@ if (!defined('ABSPATH')) {
  * clássico. Cada endpoint delega o trabalho de fato para
  * `WC_Braspag_Mpi_V3_Client` (Épico 1) — esta classe só faz a ponte
  * AJAX <-> cliente HTTP, montando os payloads a partir do carrinho/sessão do
- * WooCommerce (nunca a partir de dados de cartão brutos enviados pelo
- * cliente: o número do cartão é tokenizado client-side pela lib Cardinal em
- * `MPI.updateCard()` e nunca trafega por este backend).
+ * WooCommerce. O `handle_enroll()` inclui o número do cartão (lido do
+ * mesmo formulário clássico já usado para montar o payload do Pagador),
+ * pois a Cielo rejeita 3ds/enroll com o objeto `card` vazio — o PAN já
+ * trafega por este backend na submissão normal do pedido, então isso não
+ * amplia o escopo PCI já existente do plugin.
  *
  * Segue o mesmo padrão de arquivo/nomenclatura de WC_Braspag_Client_Logger
  * (includes/class-wc-braspag-client-logger.php): `wp_ajax_*`/`wp_ajax_nopriv_*`
@@ -77,7 +79,10 @@ class WC_Braspag_Mpi_V3_Ajax
             $order_number = WC()->cart->get_cart_hash();
             $settings = self::get_mpi_settings();
 
-            $response = WC_Braspag_Mpi_V3_Client::init($order_number, $settings);
+            $response = WC_Braspag_Mpi_V3_Client::init($order_number, $settings, array(
+                'currency' => WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ISO,
+                'amount' => (int) round(WC()->cart->get_total('edit') * 100),
+            ));
 
             wp_send_json_success(array(
                 'referenceId' => isset($response->referenceId) ? $response->referenceId : '',
@@ -97,9 +102,11 @@ class WC_Braspag_Mpi_V3_Ajax
      * JS (via `MPIHelpers.getBrowserInfo()`), e chama
      * `WC_Braspag_Mpi_V3_Client::enroll()`. Retorna status 0/1/2.
      *
-     * Nunca aceita/propaga número de cartão: apenas metadados não sensíveis
-     * (bandeira, mês/ano de expiração) podem ser enviados pelo JS, quando
-     * exigidos pelo payload de enroll.
+     * A Cielo exige o objeto 'card' (com cardNumber) não-vazio no payload
+     * de enroll — o número do cartão é lido do mesmo formulário clássico
+     * já usado para montar o payload do Pagador (o PAN já trafega por
+     * este backend na submissão do pedido, então isso não amplia o
+     * escopo PCI já existente do plugin).
      */
     public static function handle_enroll()
     {
@@ -114,9 +121,22 @@ class WC_Braspag_Mpi_V3_Ajax
             $raw_browser_info = isset($_POST['browserInfo']) ? wp_unslash($_POST['browserInfo']) : '';
             $browser_info = self::decode_browser_info($raw_browser_info);
 
+            // A Cielo exige o objeto 'card' (com cardNumber) não-vazio em
+            // 3ds/enroll ({"Code":"Card","Message":"'Card' must not be
+            // empty."}) — o PAN já trafega por este mesmo backend na
+            // submissão clássica do checkout (ver
+            // class-wc-gateway-braspag-creditcard.php, builder do Pagador),
+            // então este payload não amplia o escopo PCI já existente do
+            // plugin. Nunca logar o valor cru (WC_Braspag_Mpi_V3_Client já
+            // redige 'cardNumber' antes de qualquer log).
+            $card_number = isset($_POST['cardNumber']) ? preg_replace('/\D+/', '', wp_unslash($_POST['cardNumber'])) : '';
             $card_expiration_month = isset($_POST['cardExpirationMonth']) ? preg_replace('/\D+/', '', wp_unslash($_POST['cardExpirationMonth'])) : '';
             $card_expiration_year = isset($_POST['cardExpirationYear']) ? preg_replace('/\D+/', '', wp_unslash($_POST['cardExpirationYear'])) : '';
-            $card_brand = isset($_POST['cardBrand']) ? sanitize_text_field(wp_unslash($_POST['cardBrand'])) : '';
+            $card_payment_method = isset($_POST['cardPaymentMethod']) ? sanitize_text_field(wp_unslash($_POST['cardPaymentMethod'])) : '';
+
+            if ('' === $card_number) {
+                wp_send_json_error(array('message' => __('Missing card data.', 'woocommerce-braspag')), 400);
+            }
 
             $cart = WC()->cart;
             $customer = WC()->customer;
@@ -125,18 +145,19 @@ class WC_Braspag_Mpi_V3_Ajax
             $payload = array(
                 'referenceId' => $reference_id,
                 'orderNumber' => $cart->get_cart_hash(),
-                'currency' => 'BRL',
+                'currency' => WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ISO,
                 'amount' => (int) round($cart->get_total('edit') * 100),
                 'billTo' => self::build_bill_to($customer),
                 'browserInfo' => $browser_info,
-            );
-
-            if ('' !== $card_brand) {
-                $payload['card'] = array(
-                    'brand' => $card_brand,
+                'card' => array(
+                    'cardNumber' => $card_number,
                     'expirationMonth' => $card_expiration_month,
                     'expirationYear' => $card_expiration_year,
-                );
+                ),
+            );
+
+            if ('' !== $card_payment_method) {
+                $payload['card']['paymentMethod'] = $card_payment_method;
             }
 
             $payload = apply_filters('wc_gateway_braspag_mpi_v3_enroll_payload', $payload);

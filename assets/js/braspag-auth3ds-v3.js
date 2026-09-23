@@ -7,9 +7,11 @@
  * Fluxo (Épico 2 do plano de migração):
  *   1. Ao marcar crédito/débito, chama o backend (AJAX `braspag_mpi_v3_init`)
  *      para obter `referenceId`+`token`, depois `MPI.load()` -> `MPI.init()`
- *      -> `MPI.updateCard()` (o número do cartão NUNCA sai do browser nessa
- *      etapa: `MPI.updateCard()` fala direto com a lib Cardinal).
- *   2. No submit do form, chama `braspag_mpi_v3_enroll` (AJAX). Se status=2
+ *      -> `MPI.updateCard()` (fala direto com a lib Cardinal, no browser).
+ *   2. No submit do form, chama `braspag_mpi_v3_enroll` (AJAX), enviando
+ *      também os dados do cartão já digitados no formulário (a Cielo exige
+ *      o objeto `card` não-vazio em 3ds/enroll; o PAN já trafega por este
+ *      mesmo backend na submissão normal do pedido). Se status=2
  *      (challenge), chama `MPI.challenge()` e só prossegue quando o
  *      callback do challenge resolver; se status=1, segue direto pro
  *      validate; se status=0, decide conforme `auth3ds20_mpi_authorize_on_*`
@@ -128,8 +130,39 @@ BraspagAuth3dsV3.prototype = {
     });
   },
 
+  /**
+   * A Cielo exige o objeto 'card' (com cardNumber) não-vazio em
+   * 3ds/enroll -- lê os campos já presentes no formulário clássico do
+   * checkout (o PAN já trafega por este mesmo backend na submissão do
+   * pedido, então isso não amplia o escopo PCI já existente do plugin).
+   */
+  collectCardData: function () {
+    var prefix = 'braspag_' + this.paymentType;
+    var numberEl = document.querySelector('#' + prefix + '-card-number');
+    var expiryEl = document.querySelector('#' + prefix + '-card-expiry');
+
+    var expiryParts = (expiryEl && expiryEl.value ? expiryEl.value : '').split('/');
+    var year = (expiryParts[1] || '').replace(/\D+/g, '');
+    // Campo é MM/YY (2 dígitos); normaliza pro formato de 4 dígitos que a
+    // Cielo espera (mesma normalização já usada no builder do Pagador,
+    // class-wc-gateway-braspag-creditcard.php:577).
+    if (year.length === 2) {
+      year = '20' + year;
+    }
+
+    return {
+      cardNumber: numberEl && numberEl.value ? numberEl.value.replace(/\D+/g, '') : '',
+      cardExpirationMonth: (expiryParts[0] || '').replace(/\D+/g, ''),
+      cardExpirationYear: year,
+      // 'credit'/'debit' -- distingue cartões dual-function (documentado
+      // como card.paymentMethod pela Cielo); NÃO é a bandeira do cartão.
+      paymentMethod: this.paymentType === 'debitcard' ? 'debit' : 'credit',
+    };
+  },
+
   ajaxEnroll: function (browserInfo) {
     var self = this;
+    var cardData = this.collectCardData();
 
     return new Promise(function (resolve, reject) {
       jQuery.post(self.params.ajaxUrl, {
@@ -137,6 +170,10 @@ BraspagAuth3dsV3.prototype = {
         nonce: self.params.enrollNonce,
         referenceId: self.referenceId,
         browserInfo: JSON.stringify(browserInfo || {}),
+        cardNumber: cardData.cardNumber,
+        cardExpirationMonth: cardData.cardExpirationMonth,
+        cardExpirationYear: cardData.cardExpirationYear,
+        cardPaymentMethod: cardData.paymentMethod,
       })
         .done(function (response) {
           if (response && response.success) {
