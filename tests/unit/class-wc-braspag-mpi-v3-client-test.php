@@ -25,6 +25,9 @@ class WC_Braspag_Mpi_V3_Client_Test extends TestCase
                 'test_mode' => 'yes',
                 'auth3ds20_oauth_authentication_client_id' => 'client-id-123',
                 'auth3ds20_oauth_authentication_client_secret' => 'super-secret-value',
+                'establishment_code' => '1111111111',
+                'merchant_name' => 'LOJA DE TESTE',
+                'mcc' => '5999',
             ),
             $overrides
         );
@@ -76,6 +79,35 @@ class WC_Braspag_Mpi_V3_Client_Test extends TestCase
 
         $this->assertSame('tok_abcdef123456', $token);
         $this->assertCount(1, WC_Braspag_Test_Http_Mock::$requests);
+    }
+
+    public function test_get_access_token_envia_json_com_dados_do_estabelecimento()
+    {
+        WC_Braspag_Test_Http_Mock::set_handler(function ($url, $args) {
+            $this->assertSame('application/json; charset=UTF-8', $args['headers']['Content-Type']);
+            $this->assertIsString($args['body'], 'Corpo deveria ser JSON serializado, não array form-urlencoded.');
+
+            $decoded = json_decode($args['body'], true);
+            $this->assertSame('1111111111', $decoded['EstablishmentCode']);
+            $this->assertSame('LOJA DE TESTE', $decoded['MerchantName']);
+            $this->assertSame('5999', $decoded['MCC']);
+            $this->assertArrayNotHasKey('grant_type', $decoded, 'auth/token da v3 não usa grant_type (isso é do OAuth2 client_credentials do v2).');
+
+            return $this->json_response(200, array('access_token' => 'tok_json_ok', 'expires_in' => 1200));
+        });
+
+        $token = WC_Braspag_Mpi_V3_Client::get_access_token($this->settings());
+
+        $this->assertSame('tok_json_ok', $token);
+    }
+
+    public function test_get_access_token_lanca_excecao_quando_dados_do_estabelecimento_ausentes()
+    {
+        $this->expectException(WC_Braspag_Exception::class);
+
+        WC_Braspag_Mpi_V3_Client::get_access_token($this->settings(array(
+            'establishment_code' => '',
+        )));
     }
 
     public function test_get_access_token_usa_cache_no_ttl_sem_nova_chamada_http()

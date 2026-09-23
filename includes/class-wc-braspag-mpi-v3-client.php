@@ -89,9 +89,15 @@ class WC_Braspag_Mpi_V3_Client
      * POST /v3/auth/token — obtém (ou reaproveita do cache) o access_token
      * usado nas demais chamadas (init/enroll/validate).
      *
+     * Diferente do OAuth2 client_credentials do MPI v2, o AUTH da v3 espera
+     * Content-Type: application/json com {EstablishmentCode, MerchantName,
+     * MCC} no corpo (sem `grant_type`) — a credencial vai só no header
+     * Authorization (Basic). Ver docs.cielo.com.br/gateway/docs/mpi-v3.
+     *
      * @param array $settings Precisa conter 'test_mode',
-     *                        'auth3ds20_oauth_authentication_client_id' e
-     *                        'auth3ds20_oauth_authentication_client_secret'.
+     *                        'auth3ds20_oauth_authentication_client_id',
+     *                        'auth3ds20_oauth_authentication_client_secret',
+     *                        'establishment_code', 'merchant_name' e 'mcc'.
      * @param bool $force_refresh Ignora o cache e busca um token novo.
      * @return string access_token
      * @throws WC_Braspag_Exception
@@ -112,6 +118,17 @@ class WC_Braspag_Mpi_V3_Client
             );
         }
 
+        $establishment_code = isset($settings['establishment_code']) ? $settings['establishment_code'] : '';
+        $merchant_name = isset($settings['merchant_name']) ? $settings['merchant_name'] : '';
+        $mcc = isset($settings['mcc']) ? $settings['mcc'] : '';
+
+        if (empty($establishment_code) || empty($merchant_name) || empty($mcc)) {
+            throw new WC_Braspag_Exception(
+                'MPI v3 auth/token: establishment_code/merchant_name/mcc ausentes nas configurações.',
+                __('MPI 3DS configuration is missing merchant establishment data (Establishment Code, Merchant Name or MCC).', 'woocommerce-braspag')
+            );
+        }
+
         $transient_key = self::TOKEN_TRANSIENT_PREFIX . md5($client_id . '|' . self::get_endpoint_base($settings['test_mode'] ?? 'no'));
 
         if (!$force_refresh) {
@@ -123,7 +140,7 @@ class WC_Braspag_Mpi_V3_Client
         }
 
         $headers = array(
-            'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Content-Type' => 'application/json; charset=UTF-8',
             'Authorization' => 'Basic ' . self::get_authorization($client_id, $client_secret),
         );
 
@@ -131,8 +148,13 @@ class WC_Braspag_Mpi_V3_Client
             'auth/token',
             'POST',
             $headers,
-            array('grant_type' => 'client_credentials'),
-            $settings
+            array(
+                'EstablishmentCode' => $establishment_code,
+                'MerchantName' => $merchant_name,
+                'MCC' => $mcc,
+            ),
+            $settings,
+            true
         );
 
         $body = $response->body;

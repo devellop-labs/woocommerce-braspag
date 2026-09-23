@@ -41,7 +41,8 @@ class WC_Braspag_Mpi_V3_Ajax
     }
 
     /**
-     * @return array Settings do MPI v3 (test_mode + credenciais OAuth), a
+     * @return array Settings do MPI v3 (test_mode + credenciais OAuth +
+     *               dados do estabelecimento exigidos pelo AUTH da v3), a
      *               partir das configurações gerais já cadastradas.
      */
     protected static function get_mpi_settings()
@@ -52,6 +53,9 @@ class WC_Braspag_Mpi_V3_Ajax
             'test_mode' => isset($general_settings['test_mode']) ? $general_settings['test_mode'] : 'no',
             'auth3ds20_oauth_authentication_client_id' => isset($general_settings['auth3ds20_oauth_authentication_client_id']) ? $general_settings['auth3ds20_oauth_authentication_client_id'] : '',
             'auth3ds20_oauth_authentication_client_secret' => isset($general_settings['auth3ds20_oauth_authentication_client_secret']) ? $general_settings['auth3ds20_oauth_authentication_client_secret'] : '',
+            'establishment_code' => isset($general_settings['establishment_code']) ? $general_settings['establishment_code'] : '',
+            'merchant_name' => isset($general_settings['merchant_name']) ? $general_settings['merchant_name'] : '',
+            'mcc' => isset($general_settings['mcc']) ? $general_settings['mcc'] : '',
         );
     }
 

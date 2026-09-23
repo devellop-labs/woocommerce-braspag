@@ -27,6 +27,21 @@ Um segundo objetivo, de negócio, motivou parte do escopo: **o 3DS não funciona
 - [x] `init()`, `enroll()`, `validate()` implementados e testados com HTTP mockado.
 - [x] Erros HTTP 400/401 mapeados para `WC_Braspag_Exception` com mensagens amigáveis, sem expor o payload cru ao checkout.
 
+**Formato do request de AUTH (`POST /v3/auth/token`) — atenção, diverge do OAuth2 client_credentials do MPI v2:**
+```
+Headers:
+  Authorization: Basic <ClientId:ClientSecret em base64>
+  Content-Type: application/json
+
+Body (JSON):
+{
+    "EstablishmentCode": "...",
+    "MerchantName": "...",
+    "MCC": "..."
+}
+```
+Não há `grant_type` no corpo nem `Content-Type: application/x-www-form-urlencoded` — essa era a assinatura do endpoint OAuth2 do MPI v2 (`WC_Braspag_Mpi_API::get_authorization()`), reaproveitada por engano na primeira versão do cliente v3 e corrigida em 2026-09-23 após causar `HTTP 415 Unsupported Media Type` em staging (erro "#MPI4" no checkout). `EstablishmentCode`/`MerchantName`/`MCC` vêm das configurações gerais já existentes (`establishment_code`, `merchant_name`, `mcc` em `includes/admin/braspag-settings.php`) — se qualquer um estiver vazio, `get_access_token()` lança `WC_Braspag_Exception` antes de tentar a requisição.
+
 ### RF002 - Fluxo frontend do checkout clássico
 **Descrição:** O checkout clássico (crédito e débito) deve executar o fluxo completo `init → updateCard → enroll → challenge (se status=2) → validate` antes de liberar o submit do pedido.
 **Prioridade:** Alta
