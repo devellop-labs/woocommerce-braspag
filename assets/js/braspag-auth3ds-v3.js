@@ -11,17 +11,20 @@
  *   2. No submit do form, chama `braspag_mpi_v3_enroll` (AJAX), enviando
  *      também os dados do cartão já digitados no formulário (a Cielo exige
  *      o objeto `card` não-vazio em 3ds/enroll; o PAN já trafega por este
- *      mesmo backend na submissão normal do pedido). Se status=2
- *      (challenge), chama `MPI.challenge()` e só prossegue quando o
- *      callback do challenge resolver; se status=1, segue direto pro
- *      validate; se status=0, decide conforme `auth3ds20_mpi_authorize_on_*`
- *      (mesmo comportamento configurável do v2 — ver
- *      WC_Braspag_Auth3ds_V3_Gate no backend).
- *   3. Chama `braspag_mpi_v3_validate` (AJAX) e preenche os campos
- *      `.bpmpi_v3_*` com Cavv/Xid/Eci/Version antes de liberar o submit do
- *      form (mesmo padrão de "esperar um evento antes de liberar o submit"
- *      do v2, só que orientado a Promises em vez do listener de `change`
- *      em `.bpmpi_auth_failure_type`).
+ *      mesmo backend na submissão normal do pedido).
+ *      - status=1 (autenticado): o resultado final (Cavv/Xid/Eci/Version)
+ *        já vem no próprio enroll -- preenche `.bpmpi_v3_*` direto, sem
+ *        chamar validate.
+ *      - status=2 (challenge): chama `MPI.challenge()`; só após o
+ *        callback do challenge resolver, chama `braspag_mpi_v3_validate`
+ *        (AJAX) com o `transactionId` do challenge para obter o resultado
+ *        final.
+ *      - status=0 (não autenticado/não enrolado): decide conforme
+ *        `auth3ds20_mpi_authorize_on_*` (mesmo comportamento configurável
+ *        do v2 — ver WC_Braspag_Auth3ds_V3_Gate no backend).
+ *   3. Libera o submit do form só depois de `.bpmpi_v3_*` preenchidos (ou
+ *      o failure_type setado) -- mesmo padrão de "esperar um evento antes
+ *      de liberar o submit" do v2, orientado a Promises.
  */
 var BraspagAuth3dsV3 = Class.create();
 
@@ -205,14 +208,27 @@ BraspagAuth3dsV3.prototype = {
     });
   },
 
-  ajaxValidate: function () {
+  /**
+   * Só é chamado após o challenge (status=2 do enroll) ser resolvido --
+   * quando o enroll já retorna status=1, o resultado final (Cavv/Xid/Eci/
+   * Version) já vem no próprio enroll (ver runAuthentication()), sem
+   * precisar deste endpoint. Exige o `transactionId` devolvido pelo
+   * `Challenge` do enroll, não um `referenceId`.
+   *
+   * @param {string} transactionId
+   */
+  ajaxValidate: function (transactionId) {
     var self = this;
+    var cardData = this.collectCardData();
 
     return new Promise(function (resolve, reject) {
       jQuery.post(self.params.ajaxUrl, {
         action: 'braspag_mpi_v3_validate',
         nonce: self.params.validateNonce,
-        referenceId: self.referenceId,
+        transactionId: transactionId,
+        cardNumber: cardData.cardNumber,
+        cardExpirationMonth: cardData.cardExpirationMonth,
+        cardExpirationYear: cardData.cardExpirationYear,
       })
         .done(function (response) {
           if (response && response.success) {
@@ -260,7 +276,12 @@ BraspagAuth3dsV3.prototype = {
         }
 
         if (status === '1') {
-          return self.runValidate();
+          // O resultado final (Cavv/Xid/Eci/Version) já vem no próprio
+          // enroll quando status=1 -- o VALIDATE só existe para confirmar
+          // a autenticação depois de um challenge (status=2), não precisa
+          // ser chamado aqui.
+          self.applyAuthenticationResult(enrollData);
+          return true;
         }
 
         // status 0 (não autenticado/não enrolado): decisão de "autorizar
@@ -276,11 +297,14 @@ BraspagAuth3dsV3.prototype = {
       });
   },
 
+  /**
+   * @param {{acsUrl:string, payload:string, transactionId:string}} challengeData
+   */
   handleChallenge: function (challengeData) {
     var self = this;
 
     return new Promise(function (resolve) {
-      if (typeof MPI === 'undefined' || !MPI.challenge) {
+      if (typeof MPI === 'undefined' || !MPI.challenge || !challengeData || !challengeData.transactionId) {
         self.setFailureType('1');
         resolve(true);
         return;
@@ -288,7 +312,7 @@ BraspagAuth3dsV3.prototype = {
 
       MPI.challenge(challengeData, {
         onSuccess: function () {
-          resolve(self.runValidate());
+          resolve(self.runValidate(challengeData.transactionId));
         },
         onFailure: function () {
           self.setFailureType('1');
@@ -302,17 +326,18 @@ BraspagAuth3dsV3.prototype = {
     });
   },
 
-  runValidate: function () {
+  /**
+   * Chamado só após o challenge resolver -- pede a confirmação final
+   * (`braspag_mpi_v3_validate`) usando o `transactionId` do challenge.
+   *
+   * @param {string} transactionId
+   */
+  runValidate: function (transactionId) {
     var self = this;
 
-    return this.ajaxValidate()
+    return this.ajaxValidate(transactionId)
       .then(function (data) {
-        jQuery('.bpmpi_v3_cavv').val(data.cavv || '');
-        jQuery('.bpmpi_v3_xid').val(data.xid || '');
-        jQuery('.bpmpi_v3_eci').val(data.eci || '');
-        jQuery('.bpmpi_v3_version').val(data.version || '');
-        jQuery('.bpmpi_v3_reference_id').val(data.referenceId || self.referenceId || '');
-        jQuery('.bpmpi_v3_failure_type').val('0');
+        self.applyAuthenticationResult(data);
         return true;
       })
       .catch(function (error) {
@@ -320,6 +345,22 @@ BraspagAuth3dsV3.prototype = {
         self.setFailureType('1');
         return true;
       });
+  },
+
+  /**
+   * Preenche os campos `.bpmpi_v3_*` com o resultado final da
+   * autenticação -- vem direto do enroll quando status=1, ou do validate
+   * quando houve challenge (status=2).
+   *
+   * @param {{cavv:string, xid:string, eci:string, version:string}} data
+   */
+  applyAuthenticationResult: function (data) {
+    jQuery('.bpmpi_v3_cavv').val(data.cavv || '');
+    jQuery('.bpmpi_v3_xid').val(data.xid || '');
+    jQuery('.bpmpi_v3_eci').val(data.eci || '');
+    jQuery('.bpmpi_v3_version').val(data.version || '');
+    jQuery('.bpmpi_v3_reference_id').val(this.referenceId || '');
+    jQuery('.bpmpi_v3_failure_type').val('0');
   },
 
   setFailureType: function (failureType) {

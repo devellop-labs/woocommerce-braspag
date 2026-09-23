@@ -282,17 +282,26 @@ class WC_Braspag_Mpi_V3_Client_Test extends TestCase
     {
         $this->stub_valid_token();
 
-        WC_Braspag_Test_Http_Mock::set_handler(function ($url, $args) {
+        $payload = array(
+            'orderNumber' => 'order-3',
+            'currency' => 'BRL',
+            'totalAmount' => 1000,
+            'transactionId' => 'txn-3',
+            'card' => array('cardNumber' => '4000000000002503', 'expirationMonth' => '03', 'expirationYear' => '2029'),
+        );
+
+        WC_Braspag_Test_Http_Mock::set_handler(function ($url, $args) use ($payload) {
             $this->assertSame('https://mpisandbox.braspag.com.br/v3/3ds/validate', $url);
             $body = json_decode($args['body'], true);
-            $this->assertSame('ref-3', $body['referenceId']);
-            return $this->json_response(200, array('status' => 1, 'eci' => '05', 'cavv' => 'AAABBBCCC'));
+            $this->assertSame($payload['transactionId'], $body['transactionId']);
+            $this->assertSame($payload['orderNumber'], $body['orderNumber']);
+            return $this->json_response(200, array('Status' => 1, 'Authentication' => array('Eci' => '05', 'Cavv' => 'AAABBBCCC')));
         });
 
-        $result = WC_Braspag_Mpi_V3_Client::validate('ref-3', $this->settings());
+        $result = WC_Braspag_Mpi_V3_Client::validate($payload, $this->settings());
 
-        $this->assertSame(1, $result->status);
-        $this->assertSame('AAABBBCCC', $result->cavv);
+        $this->assertSame(1, $result->Status);
+        $this->assertSame('AAABBBCCC', $result->Authentication->Cavv);
     }
 
     public function test_validate_erro_400_lanca_excecao()
@@ -301,15 +310,15 @@ class WC_Braspag_Mpi_V3_Client_Test extends TestCase
 
         WC_Braspag_Test_Http_Mock::set_handler(function () {
             return $this->json_response(400, array(
-                array('Code' => 2, 'Message' => 'referenceId is invalid'),
+                array('Code' => 2, 'Message' => 'transactionId is invalid'),
             ));
         });
 
         try {
-            WC_Braspag_Mpi_V3_Client::validate('ref-invalid', $this->settings());
+            WC_Braspag_Mpi_V3_Client::validate(array('orderNumber' => 'order-3', 'transactionId' => 'txn-invalid'), $this->settings());
             $this->fail('Esperava WC_Braspag_Exception para HTTP 400 no validate.');
         } catch (WC_Braspag_Exception $e) {
-            $this->assertStringContainsString('referenceId is invalid', $e->getLocalizedMessage());
+            $this->assertStringContainsString('transactionId is invalid', $e->getLocalizedMessage());
         }
     }
 

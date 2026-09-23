@@ -37,12 +37,20 @@ class WC_Braspag_Mpi_V3_Client
     const TOKEN_TTL = 18 * MINUTE_IN_SECONDS;
 
     /**
-     * Código ISO 4217 numérico do Real (BRL) — o MPI v3 exige o código
-     * numérico (não o alfabético "BRL") em `3ds/init` e `3ds/enroll`;
-     * enviar "BRL" resulta em `{"Code":"Currency","Message":"Invalid
-     * currency code"}`.
+     * Código ISO 4217 numérico do Real (BRL) — exigido em `3ds/init`;
+     * enviar "BRL" (alfabético) nesse endpoint resulta em
+     * `{"Code":"Currency","Message":"Invalid currency code"}`.
      */
     const CURRENCY_BRL_ISO = '986';
+
+    /**
+     * Código alfabético do Real (BRL) — usado em `3ds/enroll` e
+     * `3ds/validate`, que documentam `Currency`/`currency` com exemplo
+     * "BRL" (diferente do `3ds/init`, que exige o código numérico acima).
+     * A doc oficial da Cielo tem essa inconsistência de formato entre
+     * endpoints — ver docs.cielo.com.br/gateway/docs/mpi-v3.
+     */
+    const CURRENCY_BRL_ALPHA = 'BRL';
 
     /**
      * Chaves que nunca podem aparecer em texto puro em log — cobre
@@ -234,24 +242,23 @@ class WC_Braspag_Mpi_V3_Client
     }
 
     /**
-     * POST /v3/3ds/validate — confirma a autenticação após o challenge (ou
-     * imediatamente quando enroll retornou status 1).
+     * POST /v3/3ds/validate — confirma a autenticação após o challenge
+     * (status=2 do enroll). Diferente do que a primeira versão deste
+     * cliente assumia, o VALIDATE não recebe só um `referenceId`: exige
+     * orderNumber/currency/totalAmount/transactionId (o `TransactionId`
+     * devolvido pelo `Challenge` do enroll) + o objeto `card` de novo —
+     * ver docs.cielo.com.br/gateway/docs/mpi-v3.
      *
-     * @param string $reference_id
+     * @param array $payload orderNumber, currency, totalAmount, transactionId, card{...}.
      * @param array $settings
      * @return object
      * @throws WC_Braspag_Exception
      */
-    public static function validate($reference_id, $settings)
+    public static function validate($payload, $settings)
     {
         $access_token = self::get_access_token($settings);
 
-        $response = self::authenticated_request(
-            '3ds/validate',
-            array('referenceId' => $reference_id),
-            $access_token,
-            $settings
-        );
+        $response = self::authenticated_request('3ds/validate', $payload, $access_token, $settings);
 
         return $response->body;
     }
