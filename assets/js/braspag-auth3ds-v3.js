@@ -39,6 +39,7 @@ BraspagAuth3dsV3.prototype = {
 
     this.paymentType = '';
     this.sessionReady = false;
+    this.sessionPromise = null;
     this.referenceId = '';
     this.mpiLoaded = false;
 
@@ -81,15 +82,30 @@ BraspagAuth3dsV3.prototype = {
    * Etapa 1: init (AJAX) -> MPI.load() -> MPI.init() -> MPI.updateCard().
    * Idempotente: só executa uma vez por página (mesmo padrão do v2 com
    * `transactionStarted`).
+   *
+   * O evento 'change' dos radios de método de pagamento pode disparar mais
+   * de uma vez antes da primeira chamada terminar (ex.: WooCommerce
+   * re-renderiza os métodos e reemite 'change' durante update_checkout) --
+   * sem memoização da Promise em andamento, isso chama `braspag_mpi_v3_init`
+   * duas vezes com o mesmo orderNumber (hash do carrinho) e a Cielo rejeita
+   * a segunda com HTTP 409 (sessão já existe para esse pedido).
    */
   startSession: function () {
     var self = this;
 
-    if (this.sessionReady || !this.isBpmpiEnabled() || typeof MPI === 'undefined') {
-      return Promise.resolve(this.sessionReady);
+    if (this.sessionReady) {
+      return Promise.resolve(true);
     }
 
-    return this.ajaxInit()
+    if (!this.isBpmpiEnabled() || typeof MPI === 'undefined') {
+      return Promise.resolve(false);
+    }
+
+    if (this.sessionPromise) {
+      return this.sessionPromise;
+    }
+
+    this.sessionPromise = this.ajaxInit()
       .then(function (data) {
         self.referenceId = data.referenceId;
 
@@ -107,8 +123,11 @@ BraspagAuth3dsV3.prototype = {
       .catch(function (error) {
         self.log('startSession failed', error);
         self.sessionReady = false;
+        self.sessionPromise = null;
         return false;
       });
+
+    return this.sessionPromise;
   },
 
   ajaxInit: function () {
