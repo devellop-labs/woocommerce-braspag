@@ -36,6 +36,15 @@ class WC_Braspag_Mpi_V3_Ajax
      */
     const SESSION_ORDER_NUMBER_KEY = 'braspag_mpi_v3_order_number';
 
+    /**
+     * Chave de sessão WC do access_token da sessão 3DS atual. No MPI v3 o
+     * token é vinculado a uma única sessão (o JWT carrega o `ReferenceId`),
+     * então init/enroll/validate de uma tentativa precisam usar exatamente
+     * o mesmo token — e ele nunca pode ser reaproveitado em outra tentativa
+     * (retorna HTTP 409). Fica só no servidor, nunca vai para o browser.
+     */
+    const SESSION_ACCESS_TOKEN_KEY = 'braspag_mpi_v3_access_token';
+
     public static function init()
     {
         add_action('wp_ajax_' . self::ACTION_INIT, array(__CLASS__, 'handle_init'));
@@ -105,10 +114,24 @@ class WC_Braspag_Mpi_V3_Ajax
     }
 
     /**
+     * Lê o access_token da sessão 3DS criada por `handle_init()`.
+     * `handle_enroll()`/`handle_validate()` precisam reusar exatamente esse
+     * token — criar um novo faria a Cielo responder 409, porque o token é
+     * vinculado à sessão (ver `WC_Braspag_Mpi_V3_Client::create_access_token()`).
+     *
+     * @return string
+     */
+    protected static function get_session_access_token()
+    {
+        return WC()->session ? (string) WC()->session->get(self::SESSION_ACCESS_TOKEN_KEY) : '';
+    }
+
+    /**
      * POST /wp-admin/admin-ajax.php?action=braspag_mpi_v3_init
      *
-     * Chama `WC_Braspag_Mpi_V3_Client::init()` para a tentativa de checkout
-     * atual e devolve `referenceId`+`token` para o JS inicializar
+     * Cria uma sessão 3DS nova para esta tentativa de checkout: gera um
+     * access_token dedicado (guardado na sessão do WC para o enroll/validate
+     * reusarem) e devolve `ReferenceId`+`Token` para o JS inicializar
      * `MPI.init()`.
      */
     public static function handle_init()
@@ -123,14 +146,24 @@ class WC_Braspag_Mpi_V3_Ajax
             $order_number = self::generate_order_number();
             $settings = self::get_mpi_settings();
 
-            $response = WC_Braspag_Mpi_V3_Client::init($order_number, $settings, array(
+            // Token novo por sessão 3DS: reaproveitar um token já usado em
+            // outro init faz a Cielo responder 409.
+            $access_token = WC_Braspag_Mpi_V3_Client::create_access_token($settings);
+
+            if (WC()->session) {
+                WC()->session->set(self::SESSION_ACCESS_TOKEN_KEY, $access_token);
+            }
+
+            $response = WC_Braspag_Mpi_V3_Client::init($order_number, $settings, $access_token, array(
                 'currency' => WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ISO,
                 'amount' => (int) round(WC()->cart->get_total('edit') * 100),
             ));
 
+            // A resposta real do init usa PascalCase (ReferenceId/Token) —
+            // ler em camelCase devolvia valores vazios para o MPI.init().
             wp_send_json_success(array(
-                'referenceId' => isset($response->referenceId) ? $response->referenceId : '',
-                'token' => isset($response->token) ? $response->token : '',
+                'referenceId' => isset($response->ReferenceId) ? $response->ReferenceId : '',
+                'token' => isset($response->Token) ? $response->Token : '',
             ));
         } catch (WC_Braspag_Exception $e) {
             WC_Braspag_Logger::log('MPI v3 init (ajax): ' . $e->getMessage());
@@ -183,8 +216,9 @@ class WC_Braspag_Mpi_V3_Ajax
             }
 
             $order_number = self::get_order_number();
+            $access_token = self::get_session_access_token();
 
-            if ('' === $order_number) {
+            if ('' === $order_number || '' === $access_token) {
                 wp_send_json_error(array('message' => __('3DS session expired, please try again.', 'woocommerce-braspag')), 400);
             }
 
@@ -212,7 +246,7 @@ class WC_Braspag_Mpi_V3_Ajax
 
             $payload = apply_filters('wc_gateway_braspag_mpi_v3_enroll_payload', $payload);
 
-            $response = WC_Braspag_Mpi_V3_Client::enroll($payload, $settings);
+            $response = WC_Braspag_Mpi_V3_Client::enroll($payload, $settings, $access_token);
 
             wp_send_json_success(self::extract_authentication_data($response));
         } catch (WC_Braspag_Exception $e) {
@@ -251,8 +285,9 @@ class WC_Braspag_Mpi_V3_Ajax
         }
 
         $order_number = self::get_order_number();
+        $access_token = self::get_session_access_token();
 
-        if ('' === $order_number) {
+        if ('' === $order_number || '' === $access_token) {
             wp_send_json_error(array('message' => __('3DS session expired, please try again.', 'woocommerce-braspag')), 400);
         }
 
@@ -274,7 +309,7 @@ class WC_Braspag_Mpi_V3_Ajax
 
             $payload = apply_filters('wc_gateway_braspag_mpi_v3_validate_payload', $payload);
 
-            $response = WC_Braspag_Mpi_V3_Client::validate($payload, $settings);
+            $response = WC_Braspag_Mpi_V3_Client::validate($payload, $settings, $access_token);
 
             wp_send_json_success(self::extract_authentication_data($response));
         } catch (WC_Braspag_Exception $e) {

@@ -284,9 +284,13 @@ BraspagAuth3dsV3.prototype = {
           return true;
         }
 
-        // status 0 (não autenticado/não enrolado): decisão de "autorizar
-        // mesmo assim" fica a cargo do backend (auth3ds20_mpi_authorize_on_unenrolled),
-        // aplicada no builder do Pagador a partir do failure_type '2'.
+        // status 0 (não autenticado/não enrolado): a Cielo ainda devolve o
+        // Eci (e a doc orienta avaliá-lo para decidir se prossegue), então
+        // preenchemos os campos disponíveis e deixamos a decisão de
+        // "autorizar mesmo assim" para o backend
+        // (auth3ds20_mpi_authorize_on_unenrolled), aplicada no builder do
+        // Pagador a partir do failure_type '2'.
+        self.applyAuthenticationResult(enrollData);
         self.setFailureType('2');
         return true;
       })

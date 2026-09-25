@@ -24,19 +24,6 @@ class WC_Braspag_Mpi_V3_Client
     const SANDBOX_ENDPOINT = 'https://mpisandbox.braspag.com.br/v3/';
 
     /**
-     * Prefixo da chave de transient usada para cachear o access_token.
-     */
-    const TOKEN_TRANSIENT_PREFIX = 'wc_braspag_mpi_v3_token_';
-
-    /**
-     * TTL do cache do access_token: 18 minutos — margem de segurança sobre
-     * os ~20 minutos de validade documentados pela Cielo para o token em
-     * produção (resolve 3DS-12: o cache anterior, via WC()->session->set()
-     * sem TTL, não expirava de fato e podia reutilizar token vencido).
-     */
-    const TOKEN_TTL = 18 * MINUTE_IN_SECONDS;
-
-    /**
      * Código ISO 4217 numérico do Real (BRL) — exigido em `3ds/init`;
      * enviar "BRL" (alfabético) nesse endpoint resulta em
      * `{"Code":"Currency","Message":"Invalid currency code"}`.
@@ -102,23 +89,32 @@ class WC_Braspag_Mpi_V3_Client
     }
 
     /**
-     * POST /v3/auth/token — obtém (ou reaproveita do cache) o access_token
-     * usado nas demais chamadas (init/enroll/validate).
+     * POST /v3/auth/token — cria um access_token NOVO para uma sessão 3DS.
      *
      * Diferente do OAuth2 client_credentials do MPI v2, o AUTH da v3 espera
      * Content-Type: application/json com {EstablishmentCode, MerchantName,
      * MCC} no corpo (sem `grant_type`) — a credencial vai só no header
      * Authorization (Basic). Ver docs.cielo.com.br/gateway/docs/mpi-v3.
      *
+     * IMPORTANTE — o token NÃO pode ser cacheado/reaproveitado: no MPI v3
+     * ele é vinculado a uma única sessão 3DS (o JWT devolvido carrega o
+     * `ReferenceId` da sessão como claim). Comprovado contra o sandbox:
+     * um segundo `3ds/init` com o mesmo token retorna HTTP 409 mesmo com
+     * `orderNumber` diferente, e um `3ds/enroll` com token diferente do
+     * usado no `init` também retorna 409. Portanto: um token por tentativa
+     * de checkout, reaproveitado apenas entre init/enroll/validate daquela
+     * mesma tentativa (ver WC_Braspag_Mpi_V3_Ajax, que guarda o token na
+     * sessão do WC). O cache por transient que existia aqui era justamente
+     * a causa do 409 em toda tentativa após a primeira.
+     *
      * @param array $settings Precisa conter 'test_mode',
      *                        'auth3ds20_oauth_authentication_client_id',
      *                        'auth3ds20_oauth_authentication_client_secret',
      *                        'establishment_code', 'merchant_name' e 'mcc'.
-     * @param bool $force_refresh Ignora o cache e busca um token novo.
      * @return string access_token
      * @throws WC_Braspag_Exception
      */
-    public static function get_access_token($settings, $force_refresh = false)
+    public static function create_access_token($settings)
     {
         $client_id = isset($settings['auth3ds20_oauth_authentication_client_id'])
             ? $settings['auth3ds20_oauth_authentication_client_id']
@@ -143,16 +139,6 @@ class WC_Braspag_Mpi_V3_Client
                 'MPI v3 auth/token: establishment_code/merchant_name/mcc ausentes nas configurações.',
                 __('MPI 3DS configuration is missing merchant establishment data (Establishment Code, Merchant Name or MCC).', 'woocommerce-braspag')
             );
-        }
-
-        $transient_key = self::TOKEN_TRANSIENT_PREFIX . md5($client_id . '|' . self::get_endpoint_base($settings['test_mode'] ?? 'no'));
-
-        if (!$force_refresh) {
-            $cached_token = get_transient($transient_key);
-
-            if (!empty($cached_token) && is_string($cached_token)) {
-                return $cached_token;
-            }
         }
 
         $headers = array(
@@ -185,34 +171,30 @@ class WC_Braspag_Mpi_V3_Client
             );
         }
 
-        // TTL real: usa o expires_in retornado pela API quando disponível
-        // (com uma margem de 2 minutos), com fallback para self::TOKEN_TTL.
-        $ttl = self::TOKEN_TTL;
-        if (isset($body->expires_in) && is_numeric($body->expires_in)) {
-            $ttl = max(60, (int) $body->expires_in - (2 * MINUTE_IN_SECONDS));
-        }
-
-        set_transient($transient_key, $access_token, $ttl);
-
-        self::log_redacted('auth/token: sucesso', array('access_token' => $access_token, 'expires_in' => $ttl));
+        self::log_redacted('auth/token: sucesso', array(
+            'access_token' => $access_token,
+            'expires_in' => isset($body->expires_in) ? $body->expires_in : null,
+        ));
 
         return $access_token;
     }
 
     /**
-     * POST /v3/3ds/init — inicia a sessão 3DS para um pedido e retorna o
-     * `referenceId` + JWT de sessão (seguro para expor ao frontend).
+     * POST /v3/3ds/init — inicia a sessão 3DS do pedido e retorna o
+     * `ReferenceId` + o JWT de sessão (`Token`, seguro para expor ao
+     * frontend). Atenção: a resposta real usa PascalCase
+     * (`ReferenceId`/`Token`), não `referenceId`/`token` como consta em
+     * alguns exemplos da doc — confirmado contra o sandbox.
      *
      * @param int|string $order_id
      * @param array $settings
-     * @param array $extra_data Campos adicionais aceitos pelo endpoint (ex.: MerchantId).
-     * @return object Resposta decodificada (contém referenceId/token).
+     * @param string $access_token Token criado por `create_access_token()` para esta sessão.
+     * @param array $extra_data Campos adicionais do endpoint (currency, amount).
+     * @return object Resposta decodificada (contém ReferenceId/Token).
      * @throws WC_Braspag_Exception
      */
-    public static function init($order_id, $settings, $extra_data = array())
+    public static function init($order_id, $settings, $access_token, $extra_data = array())
     {
-        $access_token = self::get_access_token($settings);
-
         $payload = array_merge(
             array('orderNumber' => (string) $order_id),
             $extra_data
@@ -225,17 +207,19 @@ class WC_Braspag_Mpi_V3_Client
 
     /**
      * POST /v3/3ds/enroll — verifica o enrollment do cartão/portador.
-     * Retorna status 0 (não autenticado), 1 (autenticado) ou 2 (challenge).
+     * Retorna Status 0 (não autenticado), 1 (autenticado) ou 2 (challenge).
      *
-     * @param array $payload orderNumber, currency, card, billTo, browserInfo, etc.
+     * Precisa do MESMO `access_token` usado no `init` desta sessão — um
+     * token diferente retorna HTTP 409 (comprovado contra o sandbox).
+     *
+     * @param array $payload orderNumber, currency, totalAmount, card, billTo, browserInfo, etc.
      * @param array $settings
+     * @param string $access_token
      * @return object
      * @throws WC_Braspag_Exception
      */
-    public static function enroll($payload, $settings)
+    public static function enroll($payload, $settings, $access_token)
     {
-        $access_token = self::get_access_token($settings);
-
         $response = self::authenticated_request('3ds/enroll', $payload, $access_token, $settings);
 
         return $response->body;
@@ -249,15 +233,16 @@ class WC_Braspag_Mpi_V3_Client
      * devolvido pelo `Challenge` do enroll) + o objeto `card` de novo —
      * ver docs.cielo.com.br/gateway/docs/mpi-v3.
      *
+     * Precisa do MESMO `access_token` usado no `init`/`enroll` desta sessão.
+     *
      * @param array $payload orderNumber, currency, totalAmount, transactionId, card{...}.
      * @param array $settings
+     * @param string $access_token
      * @return object
      * @throws WC_Braspag_Exception
      */
-    public static function validate($payload, $settings)
+    public static function validate($payload, $settings, $access_token)
     {
-        $access_token = self::get_access_token($settings);
-
         $response = self::authenticated_request('3ds/validate', $payload, $access_token, $settings);
 
         return $response->body;
@@ -343,9 +328,9 @@ class WC_Braspag_Mpi_V3_Client
         if ($status === 401) {
             self::log_redacted("{$api}: erro 401", array('status' => $status));
 
-            // Um 401 aqui pode significar token expirado apesar do cache —
-            // não tentamos refresh automático dentro do próprio request para
-            // evitar loop; quem chamar pode invocar get_access_token(..., true).
+            // Um 401 aqui significa token inválido/expirado. Não tentamos
+            // refresh automático: um token novo criaria outra sessão 3DS (e a
+            // Cielo responderia 409), então o fluxo tem que reiniciar do init.
             throw new WC_Braspag_Exception(
                 "MPI v3 {$api}: HTTP 401 - token de acesso inválido ou expirado.",
                 __('The 3DS MPI authentication token is invalid or has expired. Please try again.', 'woocommerce-braspag')

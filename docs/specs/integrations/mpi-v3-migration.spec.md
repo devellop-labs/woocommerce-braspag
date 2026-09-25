@@ -46,6 +46,27 @@ Não há `grant_type` no corpo nem `Content-Type: application/x-www-form-urlenco
 - `POST /v3/3ds/init`: exige `currency` no código **numérico** ISO 4217 (`"986"` para BRL — enviar `"BRL"` alfabético resulta em `{"Code":"Currency","Message":"Invalid currency code"}`). Constante `WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ISO`.
 - `POST /v3/3ds/enroll`: exige o campo `totalAmount` (não `amount`) e o objeto `card` não-vazio com `cardNumber` (PAN real, não um token — o PAN já trafega por este mesmo backend na submissão clássica do pedido, então isso não amplia o escopo PCI já existente do plugin). O `billTo` usa `name` combinado (não `firstName`/`lastName` separados), `phoneNumber` (não `phone`), `street1`/`street2` (não `address1`/`address2`), `zipCode` (não `postalCode`) — nomes diferentes do builder do Pagador, não apenas casing. `currency` aqui usa o código **alfabético** (`"BRL"`, `WC_Braspag_Mpi_V3_Client::CURRENCY_BRL_ALPHA`) — diferente do `init`, que exige o numérico. A resposta da Cielo usa chaves PascalCase aninhadas: `Status` (não `status`), `Authentication.{Cavv,Xid,Eci,Version}`, `Challenge.{AcsUrl,Pareq,TransactionId}` (só quando `Status=2`), `Reason.{Code,Message}` — ver `WC_Braspag_Mpi_V3_Ajax::extract_authentication_data()`.
 - `POST /v3/3ds/validate`: **não** recebe só um `referenceId` (como a primeira versão assumia) — exige `orderNumber`/`currency`/`totalAmount`/`transactionId` (o `Challenge.TransactionId` devolvido pelo enroll quando `Status=2`) e o objeto `card` de novo. Só deve ser chamado após um challenge resolvido; quando `enroll` já retorna `Status=1`, o resultado final (Cavv/Xid/Eci/Version) já vem na própria resposta do enroll, sem precisar de `validate`.
+**Ciclo de vida do `access_token` — comprovado contra o sandbox (2026-09-24), causa raiz do HTTP 409:**
+
+O `access_token` do MPI v3 **não é um token de aplicação reutilizável: ele é vinculado a uma única sessão 3DS.** O JWT devolvido pelo `auth/token` carrega o `ReferenceId` da sessão como claim, e o `ReferenceId` que o `3ds/init` devolve é exatamente esse valor. Consequências medidas empiricamente:
+
+| Chamada | Token | Resultado |
+|---|---|---|
+| `3ds/init` com orderNumber novo | A (novo) | 200 |
+| `3ds/init` repetido, **mesmo** orderNumber | A | **409** |
+| `3ds/init`, orderNumber **diferente** | A | **409** |
+| `3ds/init`, orderNumber já usado | B (novo) | 200 |
+| `3ds/enroll` da sessão do init | **A (o mesmo)** | 200 |
+| `3ds/enroll` da mesma sessão | B (novo) | **409** |
+
+Ou seja: o 409 é escopado ao **token**, não ao `orderNumber`. Portanto **um token por tentativa de checkout**, criado no `init` e reaproveitado apenas pelo `enroll`/`validate` daquela mesma tentativa (guardado em `WC()->session`, nunca exposto ao browser). Qualquer cache do token entre tentativas provoca 409 em todas as tentativas seguintes — era exatamente o bug: o cliente cacheava o token por transient usando o `expires_in` da API (~86400s), então toda tentativa após a primeira falhava por até 24h. `WC_Braspag_Mpi_V3_Client::create_access_token()` substituiu o antigo `get_access_token()` e não cacheia nada; o achado 3DS-12 (TTL de cache) deixa de se aplicar, porque não há mais cache.
+
+Como efeito colateral, o `orderNumber` não precisa ser único para a API aceitar o init (o teste acima reaproveitou um orderNumber com token novo e recebeu 200), mas mantivemos um UUID por tentativa (em vez do `get_cart_hash()`, que repetia entre reloads) por clareza de rastreamento.
+
+**Resposta do `3ds/init` usa PascalCase:** `{"ReferenceId": "...", "Token": "..."}` — não `referenceId`/`token` como consta no exemplo da doc. Acesso a propriedade em PHP é case-sensitive, então a versão anterior devolvia strings vazias ao `MPI.init()` do frontend mesmo com HTTP 200.
+
+**Fluxo validado end-to-end no sandbox:** cartão `4000000000002701` → `enroll` devolve `Status=1` com `Authentication.{Cavv,Eci=05,Xid,Version}` completo (sem necessidade de `validate`); cartão `4000000000002503` → `enroll` devolve `Status=2` com `Challenge.{AcsUrl,Pareq,TransactionId}` e o `validate` (mesmo token + `transactionId`) é aceito com 200. No `Status=0` a Cielo ainda devolve o `Eci`, que o driver JS agora preenche antes de deixar o gate decidir sobre autorizar ou não.
+
 - Casing dos nomes de campo é tolerado como case-insensitive pela API (confirmado empiricamente: `orderNumber`/`currency` em camelCase foram aceitos onde a doc mostra exemplos em outro casing) — os bugs reais eram nomes de campo **diferentes** (`amount` vs `totalAmount`, `firstName`/`lastName` vs `name`) ou valores ausentes/no formato errado, não apenas diferença de maiúscula/minúscula.
 
 ### RF002 - Fluxo frontend do checkout clássico
